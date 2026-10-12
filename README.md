@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tostones Zenú · Sabor Tuchinero
 
-## Getting Started
+PWA *mobile-first* para pedidos semanales al por mayor, producción, inventario y contabilidad de Tostones Zenú (Tuchín, Córdoba).
 
-First, run the development server:
+- **Contexto del proyecto (marca, decisiones, pendientes):** [`context.md`](context.md)
+- **Requerimientos y diagramas (PRD):** [`docs/PRD.md`](docs/PRD.md)
+- **Esquema de base de datos (Supabase):** [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)
+
+## Correr en local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre http://localhost:3000. En `/login` hay **cuentas de prueba** (mayorista, regular, admin, inversionista).
+El prototipo usa datos de prueba guardados en el navegador; se reinician desde *Perfil* o *Ajustes*.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Next.js 16 (App Router, Cache Components) · React 19 · TypeScript · Tailwind CSS v4 · Supabase (Postgres + Auth + RLS) · PWA + Web Push.
 
-## Learn More
+## Rutas
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Ruta | Quién | Qué |
+|---|---|---|
+| `/` | Público | Landing, cómo ser cliente, solicitud |
+| `/login` | Todos | Entrada (celular + contraseña) |
+| `/app` | Clientes | Pedido de la semana, historial, perfil |
+| `/admin` | Admin | Resumen, pedidos, programación, producción, inventario, finanzas, inversionistas, usuarios, ajustes |
+| `/inversor` | Inversionista | Ganancia neta y su parte (solo lectura) |

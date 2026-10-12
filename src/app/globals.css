@@ -1,26 +1,145 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ============================================================
+   Tostones Zenú — tokens de marca (ver context.md §2)
+   ============================================================ */
+@theme {
+  --color-noche: #15110c;
+  --color-tierra: #211810;
+  --color-tierra-2: #2c2016;
+  --color-tierra-3: #3a2b1d;
+  --color-cafe: #6b4220;
+  --color-canela: #8a5f30;
+  --color-oro: #d9a93a;
+  --color-oro-claro: #f0d58c;
+  --color-toston: #f5b82e;
+  --color-cana: #f4ead2;
+  --color-cana-2: #eadbb6;
+  --color-papel: #fbf5e6;
+  --color-verde: #3f7d4e;
+  --color-verde-claro: #7fc28f;
+  --color-rojo: #b5432f;
+  --color-rojo-claro: #e58a72;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Serie de gráficas (validada CVD sobre tierra #211810) */
+  --color-serie-1: #bf881e;
+  --color-serie-2: #ac4430;
+  --color-serie-3: #5b8dc9;
+  --color-serie-4: #4fa37a;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-hanken), system-ui, sans-serif;
+
+  --radius-card: 1.25rem;
+  --shadow-calida: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 30px -12px rgb(107 66 32 / 0.35);
+  --shadow-oro: 0 8px 24px -8px rgb(217 169 58 / 0.55);
+
+  --animate-subir: subir 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-flotar: flotar 6s ease-in-out infinite;
+  --animate-girar: girar 60s linear infinite;
+
+  @keyframes subir {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes flotar {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50%      { transform: translateY(-10px) rotate(2deg); }
+  }
+  @keyframes girar {
+    to { transform: rotate(360deg); }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Superficies semánticas por ambiente: cliente (claro) / admin (oscuro) */
+@theme inline {
+  --color-fondo: var(--t-fondo);
+  --color-card: var(--t-card);
+  --color-card-2: var(--t-card-2);
+  --color-tinta: var(--t-tinta);
+  --color-tinta-2: var(--t-tinta-2);
+  --color-linea: var(--t-linea);
+  --color-acento: var(--t-acento);
+  --color-ok: var(--t-ok);
+  --color-mal: var(--t-mal);
+}
+:root, .tema-claro {
+  --t-fondo: #f4ead2;
+  --t-card: #fffaee;
+  --t-card-2: #f1e5c8;
+  --t-tinta: #15110c;
+  --t-tinta-2: #6a5238;
+  --t-linea: rgb(107 66 32 / 0.16);
+  --t-acento: #9a6a1c;
+  --t-ok: #2f6b3e;
+  --t-mal: #a33b28;
+}
+.tema-oscuro {
+  --t-fondo: #15110c;
+  --t-card: #211810;
+  --t-card-2: #2c2016;
+  --t-tinta: #f4ead2;
+  --t-tinta-2: #b8a586;
+  --t-linea: rgb(240 213 140 / 0.11);
+  --t-acento: #f0d58c;
+  --t-ok: #7fc28f;
+  --t-mal: #e58a72;
+  color-scheme: dark;
+}
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--color-cana);
+    color: var(--color-noche);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01";
+  }
+  ::selection { background: var(--color-oro); color: var(--color-noche); }
+  :focus-visible { outline: 2px solid var(--color-oro); outline-offset: 2px; border-radius: 6px; }
+  h1, h2, h3, .font-display { font-family: var(--font-display); font-variation-settings: "SOFT" 100, "WONK" 0; letter-spacing: -0.01em; }
+}
+
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* Franja del sombrero vueltiao: zigzag negro sobre crema */
+  .trenza {
+    --c1: var(--color-noche);
+    --c2: var(--color-cana);
+    height: 18px;
+    background:
+      linear-gradient(135deg, var(--c1) 25%, transparent 25%) -9px 0 / 18px 18px,
+      linear-gradient(225deg, var(--c1) 25%, transparent 25%) -9px 0 / 18px 18px,
+      linear-gradient(315deg, var(--c1) 25%, transparent 25%) 0 0 / 18px 18px,
+      linear-gradient(45deg, var(--c1) 25%, var(--c2) 25%) 0 0 / 18px 18px;
+  }
+  .trenza-oro { --c1: var(--color-noche); --c2: var(--color-oro); }
+
+  /* Rombos caña flecha muy sutiles */
+  .rombos {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Cpath d='M22 6l8 16-8 16-8-16z' fill='none' stroke='%236b4220' stroke-opacity='.10' stroke-width='1.4'/%3E%3Cpath d='M22 16l3 6-3 6-3-6z' fill='%236b4220' fill-opacity='.08'/%3E%3C/svg%3E");
+  }
+  .rombos-oscuro {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Cpath d='M22 6l8 16-8 16-8-16z' fill='none' stroke='%23d9a93a' stroke-opacity='.07' stroke-width='1.4'/%3E%3Cpath d='M22 16l3 6-3 6-3-6z' fill='%23d9a93a' fill-opacity='.05'/%3E%3C/svg%3E");
+  }
+  /* Grano cálido */
+  .grano::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.18;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .26 0 0 0 0 .12 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .scroll-x { scrollbar-width: none; }
+  .scroll-x::-webkit-scrollbar { display: none; }
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0.75rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
