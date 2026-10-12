@@ -5,6 +5,12 @@
 
 ---
 
+## 0. Si eres otra IA (o persona) retomando el proyecto
+1. Lee este archivo completo, luego `docs/PRD.md` y `supabase/migrations/0001_init.sql` (la base de datos está explicada en **§4B**).
+2. El proyecto usa **Next.js 16**. Antes de usar cualquier API, lee su guía en `node_modules/next/dist/docs/` (ver `AGENTS.md`).
+3. Respeta la marca (§2): tokens en `src/app/globals.css`, componentes en `src/components/ui/ui.tsx`, textos con tuteo.
+4. Al terminar: `npx tsc --noEmit`, `npx eslint src` y `npx next build` sin errores. Anota el cambio en la *Bitácora*. Si tocaste la base de datos, actualiza §4B y `src/lib/types.ts`.
+
 ## 1. El negocio
 
 | Campo | Valor |
@@ -129,6 +135,86 @@ Supabase usa *access token* corto (1 h) + *refresh token* que **no expira** mien
 3. `npm i @supabase/supabase-js @supabase/ssr`; crear `src/lib/supabase/{client,server}.ts` y `src/proxy.ts` (refresca sesión y redirige por rol).
 4. Reemplazar `useStore()` por lecturas en Server Components y mutaciones en Server Actions (misma firma: `saveOrder`, `setOrderStatus`, `addExpense`, …).
 5. Crear el usuario admin y asignarle `role = 'admin', status = 'activo'` en `profiles`.
+
+---
+
+## 4B. Base de datos (Supabase / Postgres)
+
+> El SQL ejecutable está en `supabase/migrations/0001_init.sql`. Esta sección lo explica en palabras. **Si cambias el SQL, actualiza esta sección y `src/lib/types.ts` en el mismo commit.**
+
+**Convenciones**
+- Tablas en `snake_case`. En TypeScript se usan los mismos nombres en `camelCase`.
+- Las llaves son `uuid`. La excepción es `profiles.id`, que es el mismo `auth.users.id`.
+- **El dinero va en COP como `int`**, nunca `float`.
+- Las fechas de negocio son `date`; la zona horaria es `America/Bogota`.
+- Los días de la semana van de 1 = lunes a 7 = domingo.
+- Cada migración nueva va en un archivo `000N_*.sql`. No se edita una migración que ya corrió.
+
+**Enums**
+- `user_role`: admin · mayorista · regular · inversionista
+- `user_status`: pendiente · activo · inactivo
+- `order_status`: borrador · confirmado · no_pide · cancelado · en_produccion · en_camino · entregado
+- `payment_method`: efectivo · nequi · daviplata · transferencia · otro
+- `request_status`: nueva · aprobada · rechazada
+
+**Tablas**
+| Tabla | Columnas clave | Notas |
+|---|---|---|
+| `profiles` | id, full_name, phone (único), business_name, role, status, address, municipality | Se crea sola al registrarse (trigger `on_auth_user_created`, lee `raw_user_meta_data`). Nace `pendiente`. |
+| `signup_requests` | full_name, phone, municipality, business_name, requested_role, est_weekly_packs, message, status | Formulario público. El anónimo puede insertar. |
+| `settings` | cutoff_weekday (4), cutoff_time (18:00), delivery_weekday (6), wholesale_min_packs (20), reminder_weekday, reminder_time, whatsapp | Tiene una sola fila. |
+| `products` | name, presentation, price_regular, price_wholesale, unit_cost, low_stock_threshold, active, sort | |
+| `weeks` | starts_on (lunes, único), cutoff_at, delivery_on, closed | Se crean con `get_or_create_week(fecha)`. |
+| `orders` | customer_id, week_id, status, paid, payment_method, total, note, created_by | **Único por (cliente, semana).** "No pido" = `status no_pide` sin ítems. `total` lo calcula un trigger. |
+| `order_items` | order_id, product_id, qty > 0, unit_price | El precio se congela al guardar, según el rol del cliente. |
+| `production_batches` | produced_on, product_id, units_produced, units_waste, notes | Un lote por producto por día. |
+| `inventory_adjustments` | product_id, qty (+/−), reason | La pantalla está pendiente. |
+| `expense_categories` | name, parent_id (null = categoría raíz), is_default, color | Raíces: Materia prima, Insumos, Mano de obra, Gastos varios, cada una con sus subcategorías. |
+| `expenses` | spent_on, category_id, description, quantity, unit, amount, payment_method, supplier, receipt_url | Egresos. La foto de la factura irá a Storage. |
+| `incomes` | received_on, order_id (único; null = manual), concept, amount, payment_method | Las filas con `order_id` las maneja **solo** el trigger. |
+| `investors` | profile_id, name, percentage (0–100), active | Puede haber varios. |
+| `investor_payouts` | investor_id, period_start, period_end, amount, paid_on | |
+| `push_subscriptions` | profile_id, endpoint (único), subscription jsonb | |
+| `schedule_tasks` | day, kind (compra/produccion/empaque/entrega/pago/otro), title, done | |
+
+**Relaciones:** profiles 1–N orders N–1 weeks · orders 1–N order_items N–1 products · products 1–N production_batches · orders 1–0..1 incomes · expense_categories 1–N expenses · investors 1–N investor_payouts. El diagrama ER está en `docs/PRD.md` §7.
+
+**Lógica automática (triggers y funciones)**
+- `recalc_order_total`: `orders.total = Σ qty × unit_price`.
+- `order_to_income`: cuando un pedido queda `entregado` y `paid`, crea o actualiza su ingreso. Si deja de estarlo, lo borra.
+- `get_or_create_week(date)`: crea la semana usando `settings`.
+- `finance_summary(from, to)`: devuelve ingresos, egresos y neto. Solo responde a admin o inversionista.
+- Helpers de RLS: `is_admin()`, `current_role_is()`, `my_role()`, `my_status()`.
+- Ciclo del pedido: borrador/confirmado/no_pide/cancelado (los mueve el cliente, antes del corte) → en_produccion → en_camino (push al cliente) → entregado (lo mueve el admin).
+
+**Vistas:** `v_weekly_consolidated` (consolidado de la semana), `v_inventory` (stock = producido − merma − vendido + ajustes) y `v_finance_daily`. Equivalen a `src/lib/selectors.ts`.
+
+**Fórmulas:**
+- Neta = ingresos − egresos.
+- Parte del inversionista = max(neta, 0) × %.
+- Pendiente por pagarle = su parte − pagos del periodo.
+- A producir = pedido − stock.
+
+**Seguridad (RLS activo en todas las tablas)**
+- **Admin:** todo.
+- **Cliente activo:** ve y edita su perfil (sin cambiarse rol ni estado). Lee productos, semanas y ajustes. Lee y edita sus pedidos solo antes del corte.
+- **Inversionista:** ve su registro y sus pagos; las cifras globales solo por `finance_summary`.
+- **Anónimo:** solo crea solicitudes.
+- **Regla clave:** los `order_items` se escriben desde una Server Action con service role, que valida el corte y el mínimo y pone el precio. Así el cliente nunca manda su propio precio.
+
+**Mapeo prototipo → Supabase.** Cada acción de `src/lib/store.tsx` pasa a ser una Server Action con el mismo nombre:
+- `saveOrder` = `get_or_create_week` + upsert del pedido + ítems.
+- `setOrderStatus` / `setOrderPaid` = update de `orders`.
+- `addExpense`, `addIncome`, `addBatch`, `addPayout`, `updateInvestor`, `toggleTask`, `updateProduct`, `updateSettings` = la tabla correspondiente.
+- `resolveRequest` = `auth.admin.createUser` + perfil `activo`.
+- `login` = `signInWithPassword`, con el celular convertido en email sintético.
+
+**Pendientes de base de datos**
+- Bucket de Storage `recibos`.
+- `pg_cron` del jueves 10 a. m. con push a quien no ha pedido.
+- Push automático cuando un pedido pasa a `en_camino`.
+- `pg_cron` que cierre la semana al llegar el corte.
+- Generar `src/lib/database.types.ts` con `supabase gen types`.
 
 ---
 

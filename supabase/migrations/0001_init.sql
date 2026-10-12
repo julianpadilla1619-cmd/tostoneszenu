@@ -116,6 +116,29 @@ create table public.weeks (
   closed      boolean not null default false
 );
 
+-- Devuelve (y crea si no existe) la semana que contiene p_day, usando settings
+-- para el corte y la entrega. Llamar desde el servidor al abrir /app o /admin.
+create or replace function public.get_or_create_week(p_day date default (now() at time zone 'America/Bogota')::date)
+returns public.weeks language plpgsql security definer set search_path = public as $$
+declare
+  s settings;
+  monday date := p_day - (extract(isodow from p_day)::int - 1);
+  w weeks;
+begin
+  select * into w from weeks where starts_on = monday;
+  if found then return w; end if;
+  select * into s from settings limit 1;
+  insert into weeks (starts_on, cutoff_at, delivery_on)
+  values (
+    monday,
+    ((monday + (s.cutoff_weekday - 1)) + s.cutoff_time) at time zone 'America/Bogota',
+    monday + (s.delivery_weekday - 1)
+  )
+  on conflict (starts_on) do update set starts_on = excluded.starts_on
+  returning * into w;
+  return w;
+end $$;
+
 -- ---------- Pedidos ----------
 create table public.orders (
   id          uuid primary key default gen_random_uuid(),
@@ -215,10 +238,11 @@ create index on public.incomes (received_on);
 create or replace function public.order_to_income()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if new.status = 'entregado' and new.paid and not exists (select 1 from incomes where order_id = new.id) then
+  if new.status = 'entregado' and new.paid then
     insert into incomes (received_on, order_id, concept, amount, payment_method)
-    values ((now() at time zone 'America/Bogota')::date, new.id, 'Pedido semanal', new.total, coalesce(new.payment_method, 'efectivo'));
-  elsif (new.status <> 'entregado' or not new.paid) then
+    values ((now() at time zone 'America/Bogota')::date, new.id, 'Pedido semanal', new.total, coalesce(new.payment_method, 'efectivo'))
+    on conflict (order_id) do update set amount = excluded.amount, payment_method = excluded.payment_method;
+  else
     delete from incomes where order_id = new.id;
   end if;
   return new;
@@ -374,10 +398,10 @@ insert into public.products (name, presentation, price_regular, price_wholesale,
   ('Tostones de plátano', 'Paquete 150 g', 3500, 2800, 1500, 1),
   ('Papas fritas',        'Paquete 120 g', 3000, 2400, 1300, 2);
 
-with mp as (insert into public.expense_categories (name, is_default, color) values ('Materia prima', true, '#D9A93A') returning id),
-     ins as (insert into public.expense_categories (name, is_default, color) values ('Insumos', true, '#9A6A35') returning id),
-     mo as (insert into public.expense_categories (name, is_default, color) values ('Mano de obra', true, '#6B4220') returning id),
-     gv as (insert into public.expense_categories (name, is_default, color) values ('Gastos varios', true, '#3F7D4E') returning id)
+with mp as (insert into public.expense_categories (name, is_default, color) values ('Materia prima', true, '#BF881E') returning id),
+     ins as (insert into public.expense_categories (name, is_default, color) values ('Insumos', true, '#AC4430') returning id),
+     mo as (insert into public.expense_categories (name, is_default, color) values ('Mano de obra', true, '#5B8DC9') returning id),
+     gv as (insert into public.expense_categories (name, is_default, color) values ('Gastos varios', true, '#4FA37A') returning id)
 insert into public.expense_categories (name, parent_id, is_default)
 select n, mp.id, true from mp, unnest(array['Plátano','Papa']) n
 union all select n, ins.id, true from ins, unnest(array['Aceite','Gas','Empaques','Sal','Saborizantes']) n
