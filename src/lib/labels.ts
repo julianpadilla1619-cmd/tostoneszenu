@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentMethod, Role, TaskKind } from "./types";
+import type { OrderStatus, PaymentMethod, ProductCategory, Role, TaskKind } from "./types";
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   borrador: "Borrador",
@@ -14,10 +14,17 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
 export const STATUS_FLOW: OrderStatus[] = ["confirmado", "en_produccion", "en_camino", "entregado"];
 
 export const ROLE_LABEL: Record<Role, string> = {
-  admin: "Admin",
-  mayorista: "Mayorista",
-  regular: "Regular",
+  admin: "Administrador",
+  mayorista: "Cliente mayorista",
   inversionista: "Inversionista",
+};
+
+export const CATEGORY_LABEL: Record<ProductCategory, string> = {
+  platano: "Plátano",
+  papa: "Papa",
+  name: "Ñame",
+  yuca: "Yuca",
+  otro: "Otro",
 };
 
 export const METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -47,6 +54,8 @@ export const MUNICIPIOS = [
   "Ciénaga de Oro",
   "Montería",
   "Planeta Rica",
+  "San Antonio de Palmito",
+  "Sampués",
   "Sincelejo",
   "Otro",
 ];

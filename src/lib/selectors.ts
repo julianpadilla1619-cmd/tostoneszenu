@@ -1,116 +1,72 @@
-// Cálculos de negocio puros (consolidado, inventario, finanzas, reparto).
-// En Supabase equivalen a las vistas v_weekly_consolidated, v_inventory y finance_summary().
+// Cálculos de negocio puros (sin acceso a datos). Se usan en servidor y cliente.
 import { addDays } from "./format";
-import { CURRENT_WEEK_ID } from "./mock-data";
-import type { State } from "./store";
-import type { Income, Order, OrderStatus, Profile } from "./types";
+import type { Expense, ExpenseCategory, Income, Order, OrderStatus, Product } from "./types";
 
 export const ACTIVE_STATUSES: OrderStatus[] = ["confirmado", "en_produccion", "en_camino", "entregado"];
+export const isActive = (o: Pick<Order, "status">) => ACTIVE_STATUSES.includes(o.status);
+/** Pedidos que todavía hay que producir/entregar (lo entregado ya salió del inventario). */
+export const pendingDelivery = (orders: Order[]) => orders.filter((o) => isActive(o) && o.status !== "entregado");
 
 export const orderTotal = (o: Pick<Order, "items">) => o.items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
 export const orderPacks = (o: Pick<Order, "items">) => o.items.reduce((s, i) => s + i.qty, 0);
 
-export const currentWeek = (s: State) => s.weeks.find((w) => w.id === CURRENT_WEEK_ID)!;
-export const isCustomer = (p: Profile) => p.role === "mayorista" || p.role === "regular";
-
-export function weekBoard(s: State, weekId: string) {
-  const customers = s.profiles.filter((p) => isCustomer(p) && p.status === "activo");
-  const orders = s.orders.filter((o) => o.weekId === weekId);
-  const rows = customers.map((c) => ({ customer: c, order: orders.find((o) => o.customerId === c.id) }));
-  const active = rows.filter((r) => r.order && ACTIVE_STATUSES.includes(r.order.status));
-  const byProduct = s.products.map((p) => {
-    const items = active.flatMap((r) => r.order!.items).filter((i) => i.productId === p.id);
-    return { product: p, qty: items.reduce((a, i) => a + i.qty, 0), value: items.reduce((a, i) => a + i.qty * i.unitPrice, 0) };
+/** Totales por producto (y por día de entrega) de los pedidos activos. */
+export function consolidate(orders: Order[], products: Product[]) {
+  const active = orders.filter(isActive);
+  const byProduct = products
+    .map((p) => {
+      const items = active.flatMap((o) => o.items).filter((i) => i.productId === p.id);
+      return { product: p, qty: items.reduce((a, i) => a + i.qty, 0), value: items.reduce((a, i) => a + i.qty * i.unitPrice, 0) };
+    })
+    .filter((r) => r.qty > 0 || r.product.active);
+  const days = [...new Set(active.map((o) => o.deliveryOn).filter(Boolean) as string[])].sort();
+  const byDay = days.map((d) => {
+    const ds = active.filter((o) => o.deliveryOn === d);
+    return { date: d, orders: ds.length, packs: ds.reduce((a, o) => a + orderPacks(o), 0), value: ds.reduce((a, o) => a + orderTotal(o), 0) };
   });
   return {
-    rows,
+    active,
     byProduct,
+    byDay,
     totalPacks: byProduct.reduce((a, b) => a + b.qty, 0),
     totalValue: byProduct.reduce((a, b) => a + b.value, 0),
-    counts: {
-      pidieron: active.length,
-      borrador: rows.filter((r) => r.order?.status === "borrador").length,
-      noPiden: rows.filter((r) => r.order?.status === "no_pide").length,
-      sinRespuesta: rows.filter((r) => !r.order || r.order.status === "cancelado").length,
-      total: rows.length,
-    },
   };
 }
 
-export function inventory(s: State) {
-  return s.products.map((p) => {
-    const batches = s.production.filter((b) => b.productId === p.id);
-    const produced = batches.reduce((a, b) => a + b.unitsProduced, 0);
-    const waste = batches.reduce((a, b) => a + b.unitsWaste, 0);
-    const sold = s.orders
-      .filter((o) => o.status === "entregado")
-      .flatMap((o) => o.items)
-      .filter((i) => i.productId === p.id)
-      .reduce((a, i) => a + i.qty, 0);
-    const stock = produced - waste - sold;
-    return { product: p, produced, waste, sold, stock, low: stock <= p.lowStockThreshold };
-  });
-}
-
-/** Ingresos: automáticos (pedidos entregados y pagados) + manuales. */
-export function allIncomes(s: State): Income[] {
-  const auto: Income[] = s.orders
-    .filter((o) => o.status === "entregado" && o.paid)
-    .map((o) => {
-      const wk = s.weeks.find((w) => w.id === o.weekId);
-      const c = s.profiles.find((p) => p.id === o.customerId);
-      return {
-        id: `inc-${o.id}`,
-        orderId: o.id,
-        receivedOn: wk?.deliveryOn ?? o.updatedAt,
-        concept: `Pedido · ${c?.businessName ?? c?.fullName ?? "Cliente"}`,
-        amount: orderTotal(o),
-        paymentMethod: o.paymentMethod ?? "efectivo",
-      };
-    });
-  return [...auto, ...s.manualIncomes].sort((a, b) => b.receivedOn.localeCompare(a.receivedOn));
-}
-
-export const rootCategoryOf = (s: State, categoryId: string) => {
-  const c = s.categories.find((x) => x.id === categoryId);
+export const rootCategoryOf = (cats: ExpenseCategory[], id: string) => {
+  const c = cats.find((x) => x.id === id);
   if (!c) return undefined;
-  return c.parentId ? s.categories.find((x) => x.id === c.parentId) : c;
+  return c.parentId ? cats.find((x) => x.id === c.parentId) : c;
 };
 
 const inRange = (d: string, from: string, to: string) => d >= from && d <= to;
 
-export function finance(s: State, from: string, to: string) {
-  const incomes = allIncomes(s).filter((i) => inRange(i.receivedOn, from, to));
-  const expenses = s.expenses.filter((e) => inRange(e.spentOn, from, to));
-  const income = incomes.reduce((a, i) => a + i.amount, 0);
-  const expense = expenses.reduce((a, e) => a + e.amount, 0);
+export function finance(incomes: Income[], expenses: Expense[], cats: ExpenseCategory[], from: string, to: string) {
+  const inc = incomes.filter((i) => inRange(i.receivedOn, from, to));
+  const exp = expenses.filter((e) => inRange(e.spentOn, from, to));
+  const income = inc.reduce((a, i) => a + i.amount, 0);
+  const expense = exp.reduce((a, e) => a + e.amount, 0);
   const net = income - expense;
-  const roots = s.categories.filter((c) => !c.parentId);
-  const byCategory = roots
-    .map((r) => ({
-      category: r,
-      amount: expenses.filter((e) => rootCategoryOf(s, e.categoryId)?.id === r.id).reduce((a, e) => a + e.amount, 0),
-    }))
+  const byCategory = cats
+    .filter((c) => !c.parentId)
+    .map((r) => ({ category: r, amount: exp.filter((e) => rootCategoryOf(cats, e.categoryId)?.id === r.id).reduce((a, e) => a + e.amount, 0) }))
     .sort((a, b) => b.amount - a.amount);
-  return { incomes, expenses, income, expense, net, margin: income > 0 ? (net / income) * 100 : 0, byCategory };
+  return { incomes: inc, expenses: exp, income, expense, net, margin: income > 0 ? (net / income) * 100 : 0, byCategory };
 }
 
-export function weeklySeries(s: State) {
-  return s.weeks.map((w) => {
-    const end = s.weeks.find((x) => x.startsOn > w.startsOn)?.startsOn;
-    const f = finance(s, w.startsOn, end ? addDays(end, -1) : "9999-12-31");
-    return { week: w, income: f.income, expense: f.expense, net: f.net };
+/** Ingresos y egresos por semana (lunes a domingo) para las últimas `n` semanas hasta `lastMonday`. */
+export function weeklySeries(incomes: Income[], expenses: Expense[], lastMonday: string, n = 6) {
+  return Array.from({ length: n }, (_, k) => {
+    const from = addDays(lastMonday, -7 * (n - 1 - k));
+    const to = addDays(from, 6);
+    const income = incomes.filter((i) => inRange(i.receivedOn, from, to)).reduce((a, i) => a + i.amount, 0);
+    const expense = expenses.filter((e) => inRange(e.spentOn, from, to)).reduce((a, e) => a + e.amount, 0);
+    return { from, income, expense, net: income - expense };
   });
 }
 
 export function investorSplit(net: number, percentage: number) {
   const distributable = Math.max(net, 0);
   const investor = Math.round((distributable * percentage) / 100);
-  return { investor, owner: distributable - investor, loss: net < 0 ? net : 0 };
-}
-
-export function receivables(s: State) {
-  return s.orders
-    .filter((o) => o.status === "entregado" && !o.paid)
-    .map((o) => ({ order: o, customer: s.profiles.find((p) => p.id === o.customerId)!, amount: orderTotal(o) }));
+  return { investor, owner: distributable - investor };
 }

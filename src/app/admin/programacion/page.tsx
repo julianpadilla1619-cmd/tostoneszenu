@@ -1,15 +1,17 @@
-"use client";
-
 import clsx from "clsx";
-import { useState } from "react";
-import { CircleCheck, Circle, Clock, Flame, Plus, Truck } from "lucide-react";
+import { Suspense } from "react";
+import { Clock, Truck } from "lucide-react";
+import { toggleTask } from "@/app/actions/admin";
 import { PageHead } from "@/components/admin/AdminShell";
-import { Button, Card, Field, Input, Select, Sheet } from "@/components/ui/ui";
-import { addDays, dayShort, qty, weekdayName, weekRange } from "@/lib/format";
+import { TaskForm } from "@/components/admin/TaskForm";
+import { TaskToggle } from "@/components/admin/TaskToggle";
+import { Card, Skeleton } from "@/components/ui/ui";
+import { requirePage } from "@/lib/auth";
+import { adminProducts, getCatalog, ordersBetween, tasksBetween } from "@/lib/data";
+import { addDays, cap, dayShort, hour12, plural, qty, weekdayName } from "@/lib/format";
 import { TASK_LABEL } from "@/lib/labels";
-import { DEMO_TODAY } from "@/lib/mock-data";
-import { currentWeek, weekBoard } from "@/lib/selectors";
-import { newId, useStore } from "@/lib/store";
+import { consolidate } from "@/lib/selectors";
+import { deliveriesOfWeek, orderWindow, todayBogota } from "@/lib/time";
 import type { TaskKind } from "@/lib/types";
 
 const kindColor: Record<TaskKind, string> = {
@@ -21,142 +23,69 @@ const kindColor: Record<TaskKind, string> = {
   otro: "bg-tinta-2",
 };
 
-export default function Programacion() {
-  const { state, dispatch } = useStore();
-  const [adding, setAdding] = useState<string | null>(null);
-  const week = currentWeek(state);
-  const board = weekBoard(state, week.id);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(week.startsOn, i));
-  const cutoffDay = addDays(week.startsOn, state.settings.cutoffWeekday - 1);
+export default function ProgramacionPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-[70dvh]" />}>
+      <Programacion />
+    </Suspense>
+  );
+}
+
+async function Programacion() {
+  await requirePage(["admin"]);
+  const { settings } = await getCatalog();
+  const today = todayBogota();
+  const weekStart = orderWindow(settings).weekStart;
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const [tasks, orders, products] = await Promise.all([tasksBetween(weekStart, addDays(weekStart, 6)), ordersBetween(weekStart, weekStart), adminProducts()]);
+  const deliveries = deliveriesOfWeek(weekStart, settings);
+  const board = consolidate(orders, products);
 
   return (
     <>
-      <PageHead
-        title="Programación"
-        sub={`Semana ${weekRange(week.startsOn)}`}
-        action={
-          <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setAdding(DEMO_TODAY)}>
-            Nueva tarea
-          </Button>
-        }
-      />
-
+      <PageHead title="Programación" sub={`Semana del ${dayShort(weekStart)}`} action={<TaskForm days={days} today={today} />} />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {days.map((d) => {
-          const tasks = state.tasks.filter((t) => t.day === d);
-          const isToday = d === DEMO_TODAY;
-          const past = d < DEMO_TODAY;
+          const list = tasks.filter((t) => t.day === d);
+          const isDelivery = deliveries.includes(d);
+          const isCutoff = deliveries.includes(addDays(d, 1));
+          const dayInfo = board.byDay.find((x) => x.date === d);
           return (
-            <Card key={d} className={clsx("flex flex-col", isToday && "ring-2 ring-oro", past && "opacity-70")}>
+            <Card key={d} className={clsx("flex flex-col", d === today && "ring-2 ring-oro", d < today && "opacity-70")}>
               <div className="mb-3 flex items-baseline justify-between">
-                <p className="font-display text-xl font-bold capitalize">{weekdayName(d)}</p>
+                <p className="font-display text-xl font-bold">{cap(weekdayName(d))}</p>
                 <p className="text-xs text-tinta-2">
                   {dayShort(d)}
-                  {isToday && <span className="ml-1.5 rounded-full bg-oro px-1.5 py-0.5 font-bold text-noche">Hoy</span>}
+                  {d === today && <span className="ml-1.5 rounded-full bg-oro px-1.5 py-0.5 font-bold text-noche">Hoy</span>}
                 </p>
               </div>
-
-              {d === cutoffDay && (
-                <Auto icon={<Clock className="size-4" />} tone="oro">
-                  Corte de pedidos {state.settings.cutoffTime}
-                </Auto>
+              {isCutoff && (
+                <p className="mb-2 flex items-center gap-2 rounded-xl bg-oro/15 px-3 py-2 text-sm font-semibold text-oro-claro">
+                  <Clock className="size-4" aria-hidden /> Hora límite {hour12(settings.cutoffTime)}
+                </p>
               )}
-              {d === addDays(cutoffDay, 1) && (
-                <Auto icon={<Flame className="size-4" />} tone="fuego">
-                  Fritar {board.byProduct.map((b) => `${qty(b.qty)} ${b.product.kind === "toston" ? "tostones" : "papas"}`).join(" · ")}
-                </Auto>
+              {isDelivery && (
+                <p className="mb-2 flex items-center gap-2 rounded-xl bg-serie-3/20 px-3 py-2 text-sm font-semibold text-[#a9c6ea]">
+                  <Truck className="size-4" aria-hidden /> Entrega: {dayInfo ? `${plural(dayInfo.orders, "pedido", "pedidos")} · ${qty(dayInfo.packs)} paq.` : "sin pedidos aún"}
+                </p>
               )}
-              {d === week.deliveryOn && (
-                <Auto icon={<Truck className="size-4" />} tone="entrega">
-                  Entregar {board.counts.pidieron} pedidos
-                </Auto>
-              )}
-
               <ul className="flex-1 space-y-1">
-                {tasks.map((t) => (
+                {list.map((t) => (
                   <li key={t.id}>
-                    <button onClick={() => dispatch({ type: "toggleTask", id: t.id })} className="flex w-full cursor-pointer items-start gap-2.5 rounded-xl p-2 text-left text-sm hover:bg-card-2">
-                      {t.done ? <CircleCheck className="mt-0.5 size-[1.1rem] shrink-0 text-ok" /> : <Circle className="mt-0.5 size-[1.1rem] shrink-0 text-tinta-2" />}
-                      <span className="flex-1">
-                        <span className={t.done ? "text-tinta-2 line-through" : ""}>{t.title}</span>
-                        <span className="mt-0.5 flex items-center gap-1.5 text-[0.7rem] text-tinta-2">
-                          <span className={clsx("size-2 rounded-full", kindColor[t.kind])} />
-                          {TASK_LABEL[t.kind]}
-                        </span>
+                    <TaskToggle task={t} action={toggleTask.bind(null, t.id, !t.done)}>
+                      <span className="mt-0.5 flex items-center gap-1.5 text-[0.7rem] text-tinta-2">
+                        <span className={clsx("size-2 rounded-full", kindColor[t.kind])} aria-hidden />
+                        {TASK_LABEL[t.kind]}
                       </span>
-                    </button>
+                    </TaskToggle>
                   </li>
                 ))}
+                {list.length === 0 && !isDelivery && !isCutoff && <li className="text-sm text-tinta-2">Sin tareas.</li>}
               </ul>
-              <button onClick={() => setAdding(d)} className="mt-2 inline-flex h-9 cursor-pointer items-center justify-center gap-1 rounded-xl border border-dashed border-linea text-xs font-semibold text-tinta-2 hover:text-tinta">
-                <Plus className="size-3.5" /> Agregar
-              </button>
             </Card>
           );
         })}
       </div>
-
-      {adding && (
-        <Sheet open onClose={() => setAdding(null)} title="Nueva tarea">
-          <form
-            className="flex flex-col gap-3 pb-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              dispatch({
-                type: "addTask",
-                task: { id: newId("t"), day: String(f.get("day")), kind: f.get("kind") as TaskKind, title: String(f.get("title")), done: false },
-              });
-              setAdding(null);
-            }}
-          >
-            <Field label="Tarea">{(id) => <Input id={id} name="title" required placeholder="Ej. Recoger empaques" autoFocus />}</Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Día">
-                {(id) => (
-                  <Select id={id} name="day" defaultValue={adding}>
-                    {days.map((d) => (
-                      <option key={d} value={d}>
-                        {dayShort(d)}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-              <Field label="Tipo">
-                {(id) => (
-                  <Select id={id} name="kind" defaultValue="otro">
-                    {Object.entries(TASK_LABEL).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-            </div>
-            <Button type="submit" size="lg">
-              Guardar
-            </Button>
-          </form>
-        </Sheet>
-      )}
     </>
-  );
-}
-
-function Auto({ icon, children, tone }: { icon: React.ReactNode; children: React.ReactNode; tone: "oro" | "fuego" | "entrega" }) {
-  return (
-    <div
-      className={clsx(
-        "mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold",
-        tone === "oro" && "bg-oro/15 text-oro-claro",
-        tone === "fuego" && "bg-serie-2/20 text-rojo-claro",
-        tone === "entrega" && "bg-serie-3/20 text-[#a9c6ea]",
-      )}
-    >
-      {icon}
-      <span className="tabular">{children}</span>
-    </div>
   );
 }

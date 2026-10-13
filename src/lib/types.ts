@@ -1,7 +1,7 @@
-// Tipos de dominio. Reflejan 1:1 las tablas de supabase/migrations/0001_init.sql
-// (en camelCase). Fechas como ISO "YYYY-MM-DD"; montos en COP enteros.
+// Tipos de dominio. Reflejan las tablas de supabase/migrations (0001 + 0002) en camelCase.
+// Fechas de negocio como ISO "YYYY-MM-DD" (hora Colombia); montos en COP enteros.
 
-export type Role = "admin" | "mayorista" | "regular" | "inversionista";
+export type Role = "admin" | "mayorista" | "inversionista";
 export type UserStatus = "pendiente" | "activo" | "inactivo";
 export type OrderStatus =
   | "borrador"
@@ -12,37 +12,57 @@ export type OrderStatus =
   | "en_camino"
   | "entregado";
 export type PaymentMethod = "efectivo" | "nequi" | "daviplata" | "transferencia" | "otro";
+export type ProductCategory = "platano" | "papa" | "name" | "yuca" | "otro";
 
 export interface Profile {
   id: string;
   fullName: string;
-  phone: string;
-  businessName?: string;
+  phone: string | null;
+  email: string | null;
+  businessName: string | null;
   role: Role;
   status: UserStatus;
-  address?: string;
-  municipality: string;
+  address: string | null;
+  municipality: string | null;
+  notes: string | null;
+  notifyEmail: boolean;
+  notifyPush: boolean;
   createdAt: string;
 }
 
 export interface Product {
   id: string;
   name: string;
-  presentation: string;
-  priceRegular: number;
-  priceWholesale: number;
+  category: ProductCategory;
+  weightGrams: number;
+  description: string;
+  price: number; // precio mayorista por paquete
   unitCost: number;
   lowStockThreshold: number;
   active: boolean;
-  kind: "toston" | "papa";
+  featured: boolean;
+  sort: number;
+  imageUrl: string | null;
 }
 
-export interface Week {
+export interface Settings {
+  deliveryWeekdays: number[]; // ISO 1=lun … 7=dom
+  cutoffTime: string; // "18:00" del día anterior a cada entrega
+  wholesaleMinPacks: number;
+  reminderWeekday: number;
+  reminderTime: string;
+  whatsapp: string | null;
+  headline: string;
+  zones: string;
+  contactEmail: string | null;
+}
+
+export interface Faq {
   id: string;
-  startsOn: string; // lunes
-  cutoffAt: string; // ISO datetime
-  deliveryOn: string;
-  closed: boolean;
+  question: string;
+  answer: string;
+  sort: number;
+  active: boolean;
 }
 
 export interface OrderItem {
@@ -54,12 +74,14 @@ export interface OrderItem {
 export interface Order {
   id: string;
   customerId: string;
-  weekId: string;
+  weekStart: string; // lunes
+  deliveryOn: string | null;
   status: OrderStatus;
   paid: boolean;
-  paymentMethod?: PaymentMethod;
+  paymentMethod: PaymentMethod | null;
+  total: number;
+  note: string | null;
   items: OrderItem[];
-  note?: string;
   updatedAt: string;
 }
 
@@ -69,33 +91,33 @@ export interface ProductionBatch {
   productId: string;
   unitsProduced: number;
   unitsWaste: number;
-  notes?: string;
+  notes: string | null;
 }
 
 export interface ExpenseCategory {
   id: string;
   name: string;
   parentId: string | null;
-  color?: string;
+  color: string | null;
   isDefault: boolean;
 }
 
 export interface Expense {
   id: string;
   spentOn: string;
-  categoryId: string; // subcategoría (o categoría raíz)
-  description: string;
-  quantity?: number;
-  unit?: string;
+  categoryId: string;
+  description: string | null;
+  quantity: number | null;
+  unit: string | null;
   amount: number;
   paymentMethod: PaymentMethod;
-  supplier?: string;
+  supplier: string | null;
 }
 
 export interface Income {
   id: string;
   receivedOn: string;
-  orderId?: string; // presente = ingreso automático por pedido
+  orderId: string | null; // presente = ingreso automático por pedido
   concept: string;
   amount: number;
   paymentMethod: PaymentMethod;
@@ -103,7 +125,7 @@ export interface Income {
 
 export interface Investor {
   id: string;
-  profileId?: string;
+  profileId: string | null;
   name: string;
   percentage: number;
   active: boolean;
@@ -115,18 +137,17 @@ export interface InvestorPayout {
   periodStart: string;
   periodEnd: string;
   amount: number;
-  paidOn?: string;
+  paidOn: string | null;
 }
 
 export interface SignupRequest {
   id: string;
   fullName: string;
   phone: string;
-  municipality: string;
-  businessName?: string;
-  requestedRole: "regular" | "mayorista";
-  estWeeklyPacks?: number;
-  message?: string;
+  municipality: string | null;
+  businessName: string | null;
+  estWeeklyPacks: number | null;
+  message: string | null;
   status: "nueva" | "aprobada" | "rechazada";
   createdAt: string;
 }
@@ -140,12 +161,14 @@ export interface ScheduleTask {
   done: boolean;
 }
 
-export interface Settings {
-  cutoffWeekday: number; // 1=lun … 7=dom
-  cutoffTime: string; // "18:00"
-  deliveryWeekday: number;
-  wholesaleMinPacks: number;
-  reminderWeekday: number;
-  reminderTime: string;
-  whatsapp: string;
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  url: string | null;
+  readAt: string | null;
+  createdAt: string;
 }
+
+/** Resultado estándar de una Server Action. */
+export type ActionResult<T = undefined> = { ok: true; data?: T; message?: string } | { ok: false; error: string };

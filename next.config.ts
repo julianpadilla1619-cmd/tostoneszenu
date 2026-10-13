@@ -3,12 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
-  // Prototipo: la sesión vive en el navegador y las rutas protegidas se pintan en el
-  // cliente, así que solo validamos navegación instantánea donde se pida con `instant`.
-  // Al migrar a Supabase (sesión en cookies + proxy.ts) se vuelve al nivel por defecto.
-  experimental: {
-    instantInsights: { validationLevel: "manual-warning" },
-  },
+  // Sesión en cookies + proxy.ts → no necesita instantInsights manual-warning.
   turbopack: {
     rules: {
       "*.css": {

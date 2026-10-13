@@ -1,21 +1,21 @@
 import { addDays } from "./format";
-import { DEMO_TODAY } from "./mock-data";
+import { mondayOf } from "./time";
 
-export type PeriodKey = "semana" | "semana_pasada" | "mes" | "mes_pasado" | "todo";
+export type PeriodKey = "semana" | "semana_pasada" | "mes" | "mes_pasado" | "anio";
 
 export const PERIODS: { value: PeriodKey; label: string }[] = [
   { value: "semana", label: "Esta semana" },
   { value: "semana_pasada", label: "Semana pasada" },
   { value: "mes", label: "Este mes" },
   { value: "mes_pasado", label: "Mes pasado" },
-  { value: "todo", label: "Todo" },
+  { value: "anio", label: "Este año" },
 ];
 
-/** Rango [desde, hasta] (inclusive) relativo al "hoy" del prototipo. */
-export function periodRange(key: PeriodKey, today = DEMO_TODAY): { from: string; to: string } {
+/** Rango [desde, hasta] inclusive relativo a `today` (YYYY-MM-DD, hora Colombia). */
+export function periodRange(key: PeriodKey, today: string): { from: string; to: string } {
   const [y, m] = today.split("-").map(Number);
-  const monday = mondayOf(today);
   const p = (n: number) => String(n).padStart(2, "0");
+  const monday = mondayOf(today);
   switch (key) {
     case "semana":
       return { from: monday, to: addDays(monday, 6) };
@@ -28,13 +28,7 @@ export function periodRange(key: PeriodKey, today = DEMO_TODAY): { from: string;
       const pm = m === 1 ? 12 : m - 1;
       return { from: `${py}-${p(pm)}-01`, to: addDays(`${y}-${p(m)}-01`, -1) };
     }
-    case "todo":
-      return { from: "2000-01-01", to: "2999-12-31" };
+    case "anio":
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
   }
-}
-
-export function mondayOf(iso: string) {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dow = new Date(y, m - 1, d).getDay() || 7; // 1=lun … 7=dom
-  return addDays(iso, 1 - dow);
 }

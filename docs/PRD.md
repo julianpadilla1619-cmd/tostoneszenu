@@ -1,6 +1,8 @@
 # PRD — Tostones Zenú (App de pedidos, producción y contabilidad)
 
-> Versión 0.1 · 2026-10-12 · Estado: **Diseño + prototipo funcional con datos de prueba**
+> Versión 0.1 · 2026-10-12 — documento inicial de requerimientos.
+>
+> **⚠️ Reglas vigentes (2026-10-12):** el negocio es **solo mayorista** (no hay cliente regular), con pedido mínimo de 10 paquetes, entregas configurables (martes y jueves) y hora límite el día anterior. Las pantallas, la base de datos y las notificaciones vigentes están en [`../context.md`](../context.md), §3 y §5. Este PRD se conserva como referencia histórica.
 > Marca, decisiones y pendientes viven en [`../context.md`](../context.md).
 
 ---

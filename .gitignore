@@ -42,3 +42,15 @@ next-env.d.ts
 
 # plantilla de variables (sí se versiona)
 !.env.example
+
+# supabase local
+supabase/.temp/
+.supabase/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+Desktop.ini

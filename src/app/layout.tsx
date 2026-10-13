@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Hanken_Grotesk } from "next/font/google";
-import { StoreProvider } from "@/lib/store";
 import { RegisterSW } from "@/components/pwa/RegisterSW";
 import "./globals.css";
 
@@ -16,9 +15,11 @@ const hanken = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  openGraph: { type: "website", locale: "es_CO", siteName: "Tostones Zenú", images: ["/brand/logo-640.webp"] },
   title: { default: "Tostones Zenú · Sabor Tuchinero", template: "%s · Tostones Zenú" },
   description:
-    "Tostones de plátano y papas al por mayor desde Tuchín, Córdoba. Haz tu pedido de la semana desde el celular.",
+    "Tajadas de plátano y papa al por mayor, hechas en Tuchín, Córdoba. Tu negocio pide desde el celular y nosotros le llevamos.",
   applicationName: "Tostones Zenú",
   appleWebApp: { capable: true, title: "Tostones Zenú", statusBarStyle: "black-translucent" },
   icons: {
@@ -38,7 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es-CO" className={`${fraunces.variable} ${hanken.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <StoreProvider>{children}</StoreProvider>
+        {children}
         <RegisterSW />
       </body>
     </html>

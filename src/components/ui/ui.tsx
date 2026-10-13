@@ -2,6 +2,7 @@
 
 import clsx from "clsx";
 import { Minus, Plus, X } from "lucide-react";
+import { useFormStatus } from "react-dom";
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import { STATUS_LABEL } from "@/lib/labels";
 import type { OrderStatus } from "@/lib/types";
@@ -77,11 +78,11 @@ const statusDot: Record<OrderStatus, string> = {
   entregado: "bg-current",
 };
 
-export function StatusBadge({ status, className }: { status: OrderStatus | "sin_pedido"; className?: string }) {
+export function StatusBadge({ status, className, emptyLabel = "Sin respuesta" }: { status: OrderStatus | "sin_pedido"; className?: string; emptyLabel?: string }) {
   if (status === "sin_pedido")
     return (
       <span className={clsx("inline-flex items-center gap-1.5 rounded-full bg-mal/10 px-2.5 py-1 text-xs font-semibold text-mal", className)}>
-        <span className="size-1.5 rounded-full border border-current" /> Sin respuesta
+        <span className="size-1.5 rounded-full border border-current" aria-hidden /> {emptyLabel}
       </span>
     );
   return (
@@ -162,7 +163,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 }
 
 const inputCls =
-  "h-12 w-full rounded-2xl border border-linea bg-card px-4 text-[0.95rem] text-tinta outline-none transition placeholder:text-tinta-2/60 focus:border-oro focus:ring-4 focus:ring-oro/15";
+  "h-12 w-full rounded-2xl border border-linea bg-card px-4 text-base text-tinta outline-none transition placeholder:text-tinta-2/60 focus:border-oro focus:ring-4 focus:ring-oro/15";
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={clsx(inputCls, props.className)} />;
@@ -313,5 +314,51 @@ export function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+// ---------- Carga ----------
+export function Spinner({ className }: { className?: string }) {
+  return <span aria-hidden className={clsx("inline-block size-4 animate-spin rounded-full border-2 border-current border-r-transparent", className)} />;
+}
+
+/** Botón de envío que se deshabilita y muestra carga mientras el formulario se procesa. */
+export function SubmitButton({ children, pendingText = "Guardando…", ...rest }: React.ComponentProps<typeof Button> & { pendingText?: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending || rest.disabled} aria-busy={pending} {...rest} icon={pending ? <Spinner /> : rest.icon}>
+      {pending ? pendingText : children}
+    </Button>
+  );
+}
+
+export function Skeleton({ className }: { className?: string }) {
+  return <div aria-hidden className={clsx("animate-pulse rounded-[var(--radius-card)] bg-card-2", className)} />;
+}
+
+/** Interruptor accesible (checkbox nativo con estilo). */
+export function Switch({ name, defaultChecked, label, hint }: { name: string; defaultChecked?: boolean; label: string; hint?: string }) {
+  const id = useId();
+  return (
+    <label htmlFor={id} className="flex min-h-12 cursor-pointer items-center justify-between gap-4 py-1">
+      <span>
+        <span className="block text-sm font-semibold text-tinta">{label}</span>
+        {hint && <span className="block text-xs text-tinta-2">{hint}</span>}
+      </span>
+      <input id={id} name={name} type="checkbox" defaultChecked={defaultChecked} className="peer sr-only" />
+      <span
+        aria-hidden
+        className="relative h-7 w-12 shrink-0 rounded-full bg-tinta-2/30 transition peer-checked:bg-oro peer-focus-visible:ring-2 peer-focus-visible:ring-oro after:absolute after:left-1 after:top-1 after:size-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-5"
+      />
+    </label>
+  );
+}
+
+export function FormError({ message }: { message?: string | null }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="rounded-xl bg-mal/12 px-3 py-2 text-sm font-medium text-mal">
+      {message}
+    </p>
   );
 }

@@ -1,293 +1,302 @@
 # CONTEXT — Tostones Zenú · Sabor Tuchinero
 
-> Documento vivo. Fuente de verdad del proyecto: marca, decisiones, proceso y pendientes.
-> **Regla:** cada cambio relevante (decisión, pantalla nueva, dato de negocio) se registra aquí, en la sección *Bitácora*.
+> Documento vivo. Es la fuente de verdad del proyecto: negocio, marca, arquitectura, base de datos, decisiones y pendientes.
+> **Regla:** todo cambio relevante se anota aquí, en la *Bitácora* (§10).
 
 ---
 
 ## 0. Si eres otra IA (o persona) retomando el proyecto
-1. Lee este archivo completo, luego `docs/PRD.md` y `supabase/migrations/0001_init.sql` (la base de datos está explicada en **§4B**).
-2. El proyecto usa **Next.js 16**. Antes de usar cualquier API, lee su guía en `node_modules/next/dist/docs/` (ver `AGENTS.md`).
-3. Respeta la marca (§2): tokens en `src/app/globals.css`, componentes en `src/components/ui/ui.tsx`, textos con tuteo.
-4. Al terminar: `npx tsc --noEmit`, `npx eslint src` y `npx next build` sin errores. Anota el cambio en la *Bitácora*. Si tocaste la base de datos, actualiza §4B y `src/lib/types.ts`.
+1. Lee este archivo completo. Después revisa `supabase/migrations/` en orden (0001 → 0004); la base está explicada en **§5**.
+2. El proyecto usa **Next.js 16** con `cacheComponents`. Sus APIs cambiaron: antes de usar una, lee su guía en `node_modules/next/dist/docs/` (ver `AGENTS.md`). Reglas que ya nos costaron errores:
+   - Leer la sesión (cookies) **siempre dentro de `<Suspense>`**. `getProfile()` llama `connection()` antes de tocar Supabase.
+   - No usar `new Date()` / `Date.now()` en Server Components sin un acceso dinámico previo.
+   - Los datos públicos (catálogo) usan `"use cache"` + `cacheTag("catalogo")`. Quien los modifique debe llamar `updateTag(CATALOG_TAG)`.
+3. **Seguridad en tres capas, sin excepciones:** `src/proxy.ts` (ruta) → `requirePage()` / `requireAction()` en cada página y Server Action → **RLS** en Postgres. Nunca uses el cliente de service role (`createAdminClient`) sin haber llamado antes `requireAction()`.
+4. Respeta la marca (§2) y los componentes de `src/components/ui/ui.tsx`. Textos en español de Colombia, con tuteo y tildes correctas.
+5. Antes de entregar corre `npm run typecheck`, `npx eslint src`, `npm test` y `npx next build`, y anota el cambio en la Bitácora.
+
+---
 
 ## 1. El negocio
 
 | Campo | Valor |
 |---|---|
-| Nombre | **Tostones Zenú** |
-| Eslogan | **Sabor Tuchinero** |
-| Origen | Tuchín, Córdoba (Colombia) — cuna del sombrero vueltiao y la caña flecha, pueblo Zenú |
-| Producto | Tostones de plátano y papas fritas empacadas |
-| Modelo | Venta **al por mayor** con pedidos semanales (tiendas, revendedores, clientes regulares) |
-| Moneda / zona | COP (sin decimales) · `America/Bogota` |
-| Usuarios | Admin (dueño), Cliente regular, Cliente mayorista, Inversionista (solo lectura) |
+| Nombre | **Tostones Zenú** · eslogan **Sabor Tuchinero** |
+| Origen | Tuchín, Córdoba (Colombia), cuna del sombrero vueltiao y del pueblo Zenú |
+| Producto | **Tajadas** de plátano y de papa empacadas (de vez en cuando ñame o yuca). La marca se llama "tostones", pero el producto son tajadas. |
+| Modelo | **Solo al por mayor**: tiendas, cafeterías, kioscos y revendedores. **No se vende al detal.** |
+| Pedido mínimo | **10 paquetes por pedido** (se pueden combinar productos). Configurable. |
+| Entregas | **Martes y jueves** (configurable). Hora límite: **6 p. m. del día anterior** a la entrega. |
+| Pago | Contra entrega: efectivo, Nequi, Daviplata o transferencia. Se puede fiar: queda en "Por cobrar". |
+| Moneda / zona | COP sin decimales · `America/Bogota` (UTC−5, sin horario de verano) |
+| Roles | **Admin** (dueño) · **Cliente mayorista** · **Inversionista** (solo ve sus ganancias). El rol "regular" ya no existe. |
 
-### Problema que resuelve la app
-Hoy los pedidos, la producción y las cuentas se llevan "de cabeza", por WhatsApp o en cuaderno. La app:
-1. Deja que cada cliente marque **su pedido de la semana** desde el celular (o diga "esta semana no").
-2. Le da al dueño el **consolidado semanal** para planear cuánto producir.
-3. Lleva **inventario, producción, ingresos, egresos y ganancia neta**, y reparte automáticamente la parte del **inversionista**.
+**Qué resuelve:**
+- El cliente pide desde el celular: elige cantidades y día de entrega, o marca "esta semana no pido".
+- El dueño ve cuánto fritar por producto y por día de entrega.
+- La app lleva producción, inventario, ingresos, gastos y ganancia neta, y calcula la parte de cada inversionista.
 
 ---
 
-## 2. Branding
+## 2. Marca y diseño
 
 ### 2.1 Logo
-- Archivo original: `docs/brand/logo-original.png` (2016×2118, fondo transparente).
-- Copia de trabajo: `public/brand/logo.png`. Íconos PWA derivados en `public/icons/`.
-- Elementos: sello circular dorado · sombrero vueltiao (negro/crema, patrón de caña flecha) · rodajas de tostón amarillas · rombos/“pintas” Zenú a los lados · tipografía serif negra gruesa.
-- **Uso:** siempre sobre fondo oscuro (tierra/noche) o crema. No deformar, no recolorear, no poner sobre fotos ruidosas. Tamaño mínimo 40 px.
+- **Original:** `docs/brand/logo-original.png` (2016×2118 px).
+- **Versiones web:** `public/brand/logo-640.webp` (85 KB) y `logo-256.webp` (27 KB).
+- **Íconos PWA:** `public/icons/*.png`, optimizados a 128 colores, unos 170 KB en total.
+- **Uso:** siempre sobre fondo oscuro o crema. No deformar ni recolorear. Tamaño mínimo 36 px.
 
-### 2.2 Paleta (extraída del logo)
-
+### 2.2 Paleta
 | Token | Hex | Uso |
 |---|---|---|
-| `noche` | `#15110C` | Fondo oscuro principal, texto sobre claro |
-| `tierra` | `#2A1E13` | Superficies oscuras (cards admin) |
-| `cafe` | `#6B4220` | Bordes, detalles, “pintas” Zenú |
-| `canela` | `#9A6A35` | Texto secundario sobre claro |
-| `oro` | `#D9A93A` | **Color de marca**. Botones primarios, acentos |
-| `oro-claro` | `#F0D58C` | Brillos, hover, fondos suaves |
-| `toston` | `#F5B82E` | Acento “producto” (cantidades, CTA de pedido) |
-| `cana` | `#F4EAD2` | Crema caña flecha: fondo claro principal |
-| `cana-2` | `#EADBB6` | Superficie clara secundaria |
-| `verde` | `#3F7D4E` | Éxito / ingresos |
-| `rojo` | `#B5432F` | Error / egresos |
+| `noche` | `#15110C` | Fondo oscuro, texto sobre claro |
+| `tierra` | `#211810` | Superficies del admin |
+| `cafe` | `#6B4220` | Detalles, "pintas" Zenú |
+| `canela` | `#8A5F30` | Texto secundario decorativo |
+| `oro` | `#D9A93A` | **Color de marca**. Botones primarios, siempre con texto oscuro |
+| `oro-claro` | `#F0D58C` | Brillos y acentos sobre oscuro |
+| `cana` | `#F4EAD2` | Crema caña flecha: fondo claro |
 
-Contraste: texto `noche` sobre `cana` ≈ 16:1 · `noche` sobre `oro` ≈ 9:1 (los botones dorados llevan texto **oscuro**, nunca blanco).
+**Superficies semánticas:** las clases `.tema-claro` (público y cliente) y `.tema-oscuro` (admin, login e inversor) redefinen `fondo`, `card`, `card-2`, `tinta`, `tinta-2`, `linea`, `acento`, `ok` y `mal`. Los componentes usan **solo** estos tokens.
 
-**Superficies semánticas** (en `globals.css`): las clases `.tema-claro` (cliente/landing) y `.tema-oscuro` (admin/inversor/login) redefinen `fondo, card, card-2, tinta, tinta-2, linea, acento, ok, mal`. Los componentes usan solo esos tokens, así sirven en ambos ambientes.
-
-**Paleta de gráficas** (validada para daltonismo sobre `tierra #211810`, en orden fijo):
-`serie-1 #BF881E` (ingresos / materia prima) · `serie-2 #AC4430` (egresos / insumos) · `serie-3 #5B8DC9` (mano de obra) · `serie-4 #4FA37A` (gastos varios). Toda gráfica lleva leyenda, tooltip y vista de tabla.
+**Gráficas:** paleta validada para daltonismo sobre `#211810`: `serie-1 #BF881E` · `serie-2 #AC4430` · `serie-3 #5B8DC9` · `serie-4 #4FA37A`. Toda gráfica lleva leyenda, tooltip y vista de tabla.
 
 ### 2.3 Tipografía
-- **Display:** `Fraunces` (Google Fonts, peso 700–900, eje `SOFT` alto). Serif con carácter artesanal, eco de las letras del sello.
-- **Texto / UI:** `Hanken Grotesk` (400–700). Legible en pantallas pequeñas, cálida, no genérica.
-- **Números:** `Hanken Grotesk` con `font-variant-numeric: tabular-nums` (montos y cantidades alineados).
-- Escala móvil: 12 / 14 / 16 (base) / 20 / 24 / 32 / 44.
+- `Fraunces` para títulos (800–900).
+- `Hanken Grotesk` para el texto.
+- Números con `tabular-nums`.
+- Los inputs miden **16 px** para que el iPhone no haga zoom.
 
-### 2.4 Estilo visual — “Caña flecha”
-- **Concepto:** la app se siente tejida a mano. El patrón geométrico del vueltiao (rombos, zigzag, franjas negro/crema) es el sistema decorativo: separadores en zigzag, bordes de “trenza”, fondos con rombos muy sutiles.
-- **Dos ambientes:**
-  - *Cliente / público* → claro y cálido (`cana` + `oro` + `noche`). Mucho aire, botones grandes.
-  - *Admin* → oscuro (“noche/tierra”) con datos en `oro`. Densidad controlada, lectura rápida.
-- Bordes redondeados 14–22 px, sombras cálidas (no grises), grano/ruido sutil en fondos.
-- Iconos: `lucide-react`, trazo 1.75.
-- Movimiento: entradas escalonadas suaves, feedback táctil en botones (`active:scale-[.97]`). Respeta `prefers-reduced-motion`.
-
-### 2.5 Voz y tono
-Cercano, costeño, claro. Tuteo. Frases cortas.
-- ✅ “¿Cuántos paquetes te mandamos esta semana?”
-- ✅ “Listo, tu pedido quedó montado.”
-- ❌ “Su solicitud ha sido procesada exitosamente.”
-
----
-
-## 3. Producto (resumen — detalle en `docs/PRD.md`)
-
-### 3.1 Áreas
-1. **Público** — landing: qué vendemos, cómo ser cliente/mayorista, formulario de solicitud.
-2. **Portal cliente** (`/app`) — pedido de la semana, “esta semana no pido”, historial, perfil, notificaciones.
-3. **Admin** (`/admin`) — resumen, pedidos/consolidado, producción, inventario, finanzas (ingresos/egresos), inversionistas, usuarios, programación semanal, ajustes.
-4. **Inversionista** (`/inversor`) — solo lectura: ganancia neta y su parte.
-
-### 3.2 Reglas de negocio (supuestos actuales — confirmar ✅/❌)
-- Semana = **lunes a domingo**. Pedidos abiertos hasta el **jueves 6:00 p. m.** (configurable). Entrega **sábado**.
-- Unidad de venta = **paquete**. Cada producto tiene precio **regular** y precio **mayorista**.
-- Un mayorista tiene pedido mínimo (ej. 20 paquetes) — configurable.
-- El pedido se vuelve **ingreso** automáticamente cuando el admin lo marca **Entregado/Pagado**.
-- Ganancia neta = Ingresos − Egresos del periodo. Parte inversionista = Ganancia neta × % configurado (si la ganancia es negativa, se muestra la pérdida, no se reparte).
-- Inventario: `stock = producido − vendido − merma` por producto.
+### 2.4 Estilo "caña flecha" y reglas UI/UX
+- Zigzag del vueltiao como separador (`.trenza`), rombos sutiles de fondo (`.rombos`), grano cálido (`.grano`).
+- **Checklist aplicado** (skill UI/UX Pro Max):
+  - Áreas táctiles de 44 px o más.
+  - Contraste AA.
+  - Etiqueta visible en cada campo y errores junto al formulario (`role="alert"`).
+  - Botones con estado de carga.
+  - Esqueletos mientras carga.
+  - Enlace "Saltar al contenido".
+  - Íconos Lucide; nunca emojis como íconos.
+  - `prefers-reduced-motion`, `touch-action: manipulation` y `min-h-dvh`.
+  - Navegación inferior de máximo 5 ítems en celular; barra lateral en computador.
+- **Voz:** cercana y costeña, con tuteo. ✅ "¿Cuántos paquetes te mandamos?" ❌ "Su solicitud ha sido procesada".
 
 ---
 
-## 4. Arquitectura técnica
+## 3. Producto (pantallas)
 
-| Capa | Elección | Por qué |
+| Ruta | Quién | Qué hace |
 |---|---|---|
-| Framework | **Next.js (App Router) + TypeScript** | SSR + rutas por rol + un solo repo |
-| Estilos | **Tailwind CSS v4** + tokens CSS | Rápido, consistente con la paleta |
-| Backend | **Supabase** (Postgres, Auth, RLS, Storage, Edge Functions) | Auth + DB + seguridad por filas sin servidor propio |
-| PWA | Manifest + Service Worker | Instalable en el celular |
-| Push | Web Push (VAPID) vía Edge Function + `pg_cron` | Recordatorios semanales y “tu pedido va en camino” |
-| Gráficas | SVG propio / Recharts | Dashboard financiero |
-| Deploy | Vercel (front) + Supabase (back) | Gratis para empezar |
+| `/` | Público | Titular editable, productos (los destacados primero) con precio por paquete, cómo funciona, días de entrega, hora límite, zonas, preguntas frecuentes, formulario **"Enviar solicitud"** y botón de WhatsApp |
+| `/login` | Todos | Celular (clientes) o correo (admin/inversionista) + contraseña. "Olvidé mi contraseña" por correo |
+| `/cambiar-clave` | Con sesión | Nueva contraseña (también llega aquí el enlace de recuperación) |
+| `/app` | Cliente | Estado del pedido de la semana, tiempo para la hora límite, "Esta semana no pido" |
+| `/app/pedido` | Cliente | Cantidades por producto (+10/+20/+50), día de entrega, nota, "Copiar mi pedido anterior", validación del mínimo |
+| `/app/historial` · `/app/perfil` · `/app/avisos` | Cliente | Historial y deuda · correo, dirección, avisos push/correo, instalar app, cambiar clave · bandeja de avisos |
+| `/admin` | Admin | Resumen: quién pidió, qué fritar (pendiente por entregar − bodega), por cobrar, ingresos vs. gastos |
+| `/admin/pedidos` | Admin | Semana por semana, filtro por día de entrega, cambio de estado individual o por grupo (avisa al cliente), pagos, crear o editar pedidos |
+| `/admin/clientes` | Admin | Solicitudes → **crear cuenta** con contraseña temporal (se muestra una sola vez, con botón para enviarla por WhatsApp), editar, nueva contraseña, desactivar o eliminar, equipo/inversionistas |
+| `/admin/productos` | Admin | Crear y editar: tipo (plátano, papa, ñame, yuca, otro), peso, precio, costo, destacado, disponible, orden |
+| `/admin/produccion` | Admin | Inventario por producto + registro de lotes |
+| `/admin/finanzas` | Admin | Periodos, ingresos (automáticos y manuales), gastos con categorías y subcategorías, ganancia neta, margen |
+| `/admin/inversionistas` | Admin | Porcentaje, reparto por periodo, registrar pagos |
+| `/admin/programacion` | Admin | Semana con horas límite, entregas y tareas |
+| `/admin/ajustes` | Admin | Días de entrega, hora límite, mínimo, WhatsApp, correo, titular, zonas, preguntas frecuentes, categorías de gasto |
+| `/inversor` | Inversionista | Solo lectura: neta del periodo y su parte (vía RPC, sin detalle de gastos) |
 
-### Sesión “siempre abierta”
-Supabase usa *access token* corto (1 h) + *refresh token* que **no expira** mientras se use; con `persistSession: true` y cookies vía `@supabase/ssr` el usuario no vuelve a loguearse. En el panel de Supabase: *Auth → Sessions* sin límite de tiempo ni inactividad.
+### Reglas de negocio implementadas
+- **Semana de pedido:** es la de la próxima entrega cuya hora límite no ha pasado. Ejemplo: lunes 7 p. m. ya cerró el martes, así que queda el jueves; el miércoles 7 p. m. pasa a la semana siguiente (ver `src/lib/time.ts`).
+- **Un pedido por cliente por semana**, con un día de entrega elegido. "No pido" es un pedido con `status = no_pide` y sin productos.
+- El cliente puede cambiar su pedido hasta la hora límite y mientras esté `confirmado`. Desde `en_produccion` solo lo cambia el admin. El admin puede crear o editar pedidos sin restricción de hora ni de mínimo.
+- Los precios se **congelan** al guardar el pedido y los pone el servidor, nunca el navegador.
+- Un pedido `entregado` y `pagado` genera **solo** su ingreso (trigger).
+- **Inventario** = producido − merma − entregado + ajustes. Lo "por fritar" usa solo pedidos **pendientes por entregar**.
+- Al **eliminar** un cliente con ventas, se desactiva en vez de borrarse; los productos con historial se ocultan.
 
-### Login propuesto
-**Celular + contraseña** (internamente se mapea a un email sintético `57XXXXXXXXXX@clientes.tostoneszenu.app`). Evita costos de SMS/OTP. Alternativa: magic link por email. → *Pendiente confirmar.*
+### Notificaciones (3 canales, `src/lib/notify.ts`)
+| Evento | A quién | Canal |
+|---|---|---|
+| Nueva solicitud en la página | Admins | App + push + correo |
+| Pedido nuevo o modificado | Admins | App + push + correo |
+| En producción / en camino / entregado | Cliente | App + push + correo |
+| Admin le monta un pedido | Cliente | App + push + correo |
+| **Día antes de cada entrega, 10 a. m.** (Vercel Cron → `/api/cron/recordatorio`) | Clientes sin pedido esa semana | App + push + correo |
 
-### Estado actual del código
-- La app corre con **datos de prueba** deterministas (`src/lib/mock-data.ts`, “hoy” fijo = lun 12 oct 2026) en un estado cliente (`src/lib/store.tsx`) que persiste en `localStorage`. Las acciones del store tienen la misma forma que tendrán las Server Actions de Supabase.
-- Cálculos de negocio puros en `src/lib/selectors.ts` (consolidado, inventario, finanzas, reparto) — equivalen a las vistas SQL.
-- Tipos de dominio en `src/lib/types.ts` = tablas del SQL en camelCase.
-- Esquema SQL listo en `supabase/migrations/0001_init.sql` (enums, tablas, triggers de total e ingreso automático, vistas, RLS, semillas).
-- **Next.js 16** con `cacheComponents` + `partialPrefetching`. Ojo: no usar `new Date()`/`Math.random()` en Server Components (rompe el prerender). Leer `node_modules/next/dist/docs/` antes de usar APIs nuevas (ver `AGENTS.md`).
-- `experimental.instantInsights.validationLevel = "manual-warning"` en `next.config.ts`: las rutas protegidas se pintan en el cliente mientras la sesión viva en el navegador. **Al migrar a Supabase** (sesión en cookies + `proxy.ts` + Server Components) quitar esa línea.
-
-### Cómo migrar a Supabase (F1)
-1. Crear proyecto → SQL Editor → correr `0001_init.sql`.
-2. Copiar `.env.example` → `.env.local` con URL y anon key.
-3. `npm i @supabase/supabase-js @supabase/ssr`; crear `src/lib/supabase/{client,server}.ts` y `src/proxy.ts` (refresca sesión y redirige por rol).
-4. Reemplazar `useStore()` por lecturas en Server Components y mutaciones en Server Actions (misma firma: `saveOrder`, `setOrderStatus`, `addExpense`, …).
-5. Crear el usuario admin y asignarle `role = 'admin', status = 'activo'` en `profiles`.
+- **App:** tabla `notifications` y la campana con contador.
+- **Push:** Web Push con llaves VAPID. Cada persona lo activa en su perfil, en cada celular. En iPhone primero hay que instalar la app en la pantalla de inicio.
+- **Correo:** [Resend](https://resend.com) vía `RESEND_API_KEY`. Si la variable no existe, no se envían correos y no falla nada. Las cuentas de clientes usan un correo interno (`57XXXXXXXXXX@clientes.tostoneszenu.app`) que nunca recibe correos; el correo real va en `profiles.email`.
 
 ---
 
-## 4B. Base de datos (Supabase / Postgres)
+## 4. Arquitectura
 
-> El SQL ejecutable está en `supabase/migrations/0001_init.sql`. Esta sección lo explica en palabras. **Si cambias el SQL, actualiza esta sección y `src/lib/types.ts` en el mismo commit.**
+| Capa | Elección |
+|---|---|
+| App | **Next.js 16** (App Router, Cache Components, Partial Prefetching) + React 19 + TypeScript |
+| Estilos | Tailwind CSS v4 + tokens |
+| Datos y Auth | **Supabase** (Postgres + RLS + Auth). La sesión vive en cookies (`@supabase/ssr`), dura 400 días y se refresca en `src/proxy.ts`: "la cuenta queda abierta" |
+| Mutaciones | **Server Actions** (`src/app/actions/{auth,public,cliente,admin}.ts`), cada una con `requireAction()` y validación (`src/lib/validate.ts`) |
+| Lecturas | Server Components dentro de `<Suspense>` → `src/lib/data.ts` (cliente con sesión, respeta RLS) |
+| PWA | `src/app/manifest.ts` + `public/sw.js`, que solo cachea páginas públicas, nunca datos de una cuenta |
+| Push / correo / cron | `web-push` + Resend + `vercel.json` (cron 15:00 UTC = 10 a. m. Colombia) |
+| Pruebas | `vitest` → `tests/negocio.test.ts` (18 pruebas de fechas, ventanas de pedido, finanzas y validaciones) |
+| Deploy | Vercel (front) + Supabase (proyecto `mnsjklwanempdrxahffy`, us-east-2) |
 
-**Convenciones**
-- Tablas en `snake_case`. En TypeScript se usan los mismos nombres en `camelCase`.
-- Las llaves son `uuid`. La excepción es `profiles.id`, que es el mismo `auth.users.id`.
-- **El dinero va en COP como `int`**, nunca `float`.
-- Las fechas de negocio son `date`; la zona horaria es `America/Bogota`.
-- Los días de la semana van de 1 = lunes a 7 = domingo.
-- Cada migración nueva va en un archivo `000N_*.sql`. No se edita una migración que ya corrió.
+### Variables de entorno (Vercel → Settings → Environment Variables)
+| Variable | Obligatoria | Nota |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sí | Públicas |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sí | **Secreta**, solo servidor |
+| `NEXT_PUBLIC_SITE_URL` | Sí | URL de producción (enlaces de correos, recuperación de clave, mensaje de WhatsApp) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Para push | Ya generadas en `.env.local`; copiarlas iguales a Vercel |
+| `CRON_SECRET` | Para el recordatorio | Vercel la envía sola al cron |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Opcional | Correo. Requiere verificar el dominio en Resend |
 
-**Enums**
-- `user_role`: admin · mayorista · regular · inversionista
-- `user_status`: pendiente · activo · inactivo
-- `order_status`: borrador · confirmado · no_pide · cancelado · en_produccion · en_camino · entregado
-- `payment_method`: efectivo · nequi · daviplata · transferencia · otro
-- `request_status`: nueva · aprobada · rechazada
+### Configuración en Supabase (panel)
+- **Auth → URL Configuration:** *Site URL* = URL de Vercel. En *Redirect URLs* agregar `https://<tu-dominio>/auth/confirm` y `http://localhost:3000/auth/confirm`.
+- **Auth → Providers → Email:** desactivar *"Allow new users to sign up"*. Las cuentas solo las crea el admin.
+- **Auth → Password security:** activar *Leaked password protection* (aviso del Security Advisor).
 
-**Tablas**
+### ⚠️ Problema de red del computador de desarrollo (2026-10-12)
+Los DNS de Windows de este PC son `148.251.75.242` y `79.137.248.21`. Resuelven `*.supabase.co` a `147.45.69.3`, que **no es de Supabase**, con un certificado falso ("localhost", emisor "ospanel"). Por eso el login local no funcionaba. **Hay que revisarlo:** puede ser una VPN o "desbloqueador", o malware que cambió el DNS. Se recomienda poner DNS automáticos o `1.1.1.1` / `8.8.8.8` y pasar un antivirus. En Vercel no ocurre.
+
+---
+
+## 5. Base de datos (Supabase / Postgres)
+
+Migraciones en orden: `0001_init` → `0002_mayoristas_entregas_notificaciones` → `0003_fk_created_by` → `0004_rendimiento_rls`.
+**Si cambias el SQL, crea una migración nueva, actualiza esta sección y `src/lib/types.ts`/`mappers.ts`.**
+
+**Convenciones:**
+- Tablas en `snake_case`; en TypeScript, `camelCase`.
+- Las llaves son `uuid`; `profiles.id` es el mismo `auth.users.id`.
+- Dinero en COP como `int`.
+- Fechas de negocio como `date` en hora de Colombia.
+- Días ISO: 1 = lunes … 7 = domingo.
+
+**Enums:**
+- `user_role`: admin · mayorista · inversionista (`regular` existe en el enum pero un CHECK lo prohíbe).
+- `user_status`: pendiente · activo · inactivo.
+- `order_status`: borrador · confirmado · no_pide · cancelado · en_produccion · en_camino · entregado.
+- `payment_method`: efectivo · nequi · daviplata · transferencia · otro.
+- `request_status`: nueva · aprobada · rechazada.
+
 | Tabla | Columnas clave | Notas |
 |---|---|---|
-| `profiles` | id, full_name, phone (único), business_name, role, status, address, municipality | Se crea sola al registrarse (trigger `on_auth_user_created`, lee `raw_user_meta_data`). Nace `pendiente`. |
-| `signup_requests` | full_name, phone, municipality, business_name, requested_role, est_weekly_packs, message, status | Formulario público. El anónimo puede insertar. |
-| `settings` | cutoff_weekday (4), cutoff_time (18:00), delivery_weekday (6), wholesale_min_packs (20), reminder_weekday, reminder_time, whatsapp | Tiene una sola fila. |
-| `products` | name, presentation, price_regular, price_wholesale, unit_cost, low_stock_threshold, active, sort | |
-| `weeks` | starts_on (lunes, único), cutoff_at, delivery_on, closed | Se crean con `get_or_create_week(fecha)`. |
-| `orders` | customer_id, week_id, status, paid, payment_method, total, note, created_by | **Único por (cliente, semana).** "No pido" = `status no_pide` sin ítems. `total` lo calcula un trigger. |
-| `order_items` | order_id, product_id, qty > 0, unit_price | El precio se congela al guardar, según el rol del cliente. |
-| `production_batches` | produced_on, product_id, units_produced, units_waste, notes | Un lote por producto por día. |
-| `inventory_adjustments` | product_id, qty (+/−), reason | La pantalla está pendiente. |
-| `expense_categories` | name, parent_id (null = categoría raíz), is_default, color | Raíces: Materia prima, Insumos, Mano de obra, Gastos varios, cada una con sus subcategorías. |
-| `expenses` | spent_on, category_id, description, quantity, unit, amount, payment_method, supplier, receipt_url | Egresos. La foto de la factura irá a Storage. |
-| `incomes` | received_on, order_id (único; null = manual), concept, amount, payment_method | Las filas con `order_id` las maneja **solo** el trigger. |
-| `investors` | profile_id, name, percentage (0–100), active | Puede haber varios. |
-| `investor_payouts` | investor_id, period_start, period_end, amount, paid_on | |
-| `push_subscriptions` | profile_id, endpoint (único), subscription jsonb | |
-| `schedule_tasks` | day, kind (compra/produccion/empaque/entrega/pago/otro), title, done | |
+| `profiles` | full_name, phone (único), email, business_name, role, status, address, municipality, notes, notify_email, notify_push | La crea el trigger `on_auth_user_created`, **siempre** como mayorista pendiente: nunca confía en lo que mande el navegador. El admin la activa. |
+| `signup_requests` | full_name, business_name, phone, municipality, est_weekly_packs, message, status | El anónimo solo puede insertar. |
+| `settings` (fila única) | delivery_weekdays int[] `{2,4}`, cutoff_time `18:00`, wholesale_min_packs `10`, whatsapp, headline, zones, contact_email, reminder_* | La lectura es pública. |
+| `products` | name, category (platano/papa/name/yuca/otro), weight_grams, description, **price**, unit_cost, low_stock_threshold, active, featured, sort, image_url | La lectura pública es solo de los activos. |
+| `faqs` | question, answer, sort, active | Preguntas frecuentes editables desde Ajustes. |
+| `orders` | customer_id, **week_start** (lunes), **delivery_on**, status, paid, payment_method, total, note, created_by | Único por (customer_id, week_start). Valida que la entrega caiga en esa semana. El cliente solo LEE; escribe el servidor. |
+| `order_items` | order_id, product_id, qty, unit_price | `total` lo recalcula un trigger. |
+| `production_batches` | produced_on, product_id, units_produced, units_waste, notes | |
+| `inventory_adjustments` | product_id, qty ±, reason | Falta la pantalla. |
+| `expense_categories` / `expenses` | dos niveles / spent_on, category_id, amount, quantity, unit, supplier… | Incluye las subcategorías Ñame y Yuca. |
+| `incomes` | received_on, order_id (null = manual), concept, amount | Las filas de pedidos las maneja el trigger. |
+| `investors` / `investor_payouts` | name, percentage, profile_id / periodo, amount, paid_on | |
+| `notifications` | profile_id, title, body, url, read_at | Cada uno ve y marca solo las suyas. |
+| `push_subscriptions` | profile_id, endpoint, subscription | |
+| `schedule_tasks` | day, kind, title, done | |
 
-**Relaciones:** profiles 1–N orders N–1 weeks · orders 1–N order_items N–1 products · products 1–N production_batches · orders 1–0..1 incomes · expense_categories 1–N expenses · investors 1–N investor_payouts. El diagrama ER está en `docs/PRD.md` §7.
+**Triggers y funciones:**
+- `recalc_order_total` (SECURITY DEFINER, para que Supabase Auth pueda borrar cuentas).
+- `order_to_income`: si el pedido queda entregado y pagado, crea o actualiza el ingreso; si deja de estarlo, lo borra.
+- `handle_new_user`.
+- `order_cutoff(fecha)`.
+- `finance_summary(desde, hasta)`: solo para admin o inversionista.
+- Helpers de RLS: `is_admin`, `current_role_is`, `my_role`, `my_status`.
 
-**Lógica automática (triggers y funciones)**
-- `recalc_order_total`: `orders.total = Σ qty × unit_price`.
-- `order_to_income`: cuando un pedido queda `entregado` y `paid`, crea o actualiza su ingreso. Si deja de estarlo, lo borra.
-- `get_or_create_week(date)`: crea la semana usando `settings`.
-- `finance_summary(from, to)`: devuelve ingresos, egresos y neto. Solo responde a admin o inversionista.
-- Helpers de RLS: `is_admin()`, `current_role_is()`, `my_role()`, `my_status()`.
-- Ciclo del pedido: borrador/confirmado/no_pide/cancelado (los mueve el cliente, antes del corte) → en_produccion → en_camino (push al cliente) → entregado (lo mueve el admin).
+**Vistas:**
+- `v_weekly_consolidated`: por semana, día y producto.
+- `v_inventory`.
+- `v_finance_daily`.
 
-**Vistas:** `v_weekly_consolidated` (consolidado de la semana), `v_inventory` (stock = producido − merma − vendido + ajustes) y `v_finance_daily`. Equivalen a `src/lib/selectors.ts`.
+**RLS, verificado con pruebas el 2026-10-12:**
+- **Cliente:** ve 1 perfil (el suyo) y solo sus pedidos. Ve 0 gastos, 0 ingresos, 0 solicitudes y 0 avisos ajenos. No puede modificar pedidos, precios ni su propio rol: el intento de hacerse admin fue rechazado por la política.
+- **Anónimo:** ve solo productos activos y preguntas frecuentes.
 
-**Fórmulas:**
-- Neta = ingresos − egresos.
-- Parte del inversionista = max(neta, 0) × %.
-- Pendiente por pagarle = su parte − pagos del periodo.
-- A producir = pedido − stock.
-
-**Seguridad (RLS activo en todas las tablas)**
-- **Admin:** todo.
-- **Cliente activo:** ve y edita su perfil (sin cambiarse rol ni estado). Lee productos, semanas y ajustes. Lee y edita sus pedidos solo antes del corte.
-- **Inversionista:** ve su registro y sus pagos; las cifras globales solo por `finance_summary`.
-- **Anónimo:** solo crea solicitudes.
-- **Regla clave:** los `order_items` se escriben desde una Server Action con service role, que valida el corte y el mínimo y pone el precio. Así el cliente nunca manda su propio precio.
-
-**Mapeo prototipo → Supabase.** Cada acción de `src/lib/store.tsx` pasa a ser una Server Action con el mismo nombre:
-- `saveOrder` = `get_or_create_week` + upsert del pedido + ítems.
-- `setOrderStatus` / `setOrderPaid` = update de `orders`.
-- `addExpense`, `addIncome`, `addBatch`, `addPayout`, `updateInvestor`, `toggleTask`, `updateProduct`, `updateSettings` = la tabla correspondiente.
-- `resolveRequest` = `auth.admin.createUser` + perfil `activo`.
-- `login` = `signInWithPassword`, con el celular convertido en email sintético.
-
-**Pendientes de base de datos**
-- Bucket de Storage `recibos`.
-- `pg_cron` del jueves 10 a. m. con push a quien no ha pedido.
-- Push automático cuando un pedido pasa a `en_camino`.
-- `pg_cron` que cierre la semana al llegar el corte.
-- Generar `src/lib/database.types.ts` con `supabase gen types`.
+**Security Advisor:**
+- De 18 advertencias quedan 6.
+- 5 son los helpers que RLS necesita: solo devuelven datos de quien consulta, y `finance_summary` valida el rol por dentro.
+- La sexta es *Leaked password protection*, que se activa en el panel.
+- Las advertencias de rendimiento por "múltiples políticas permisivas" se aceptan a esta escala.
 
 ---
 
-## 5. Estructura de carpetas
+## 6. Estructura de carpetas
 
 ```
-tostoneszenu/
-├─ context.md                ← este archivo
-├─ docs/
-│  └─ PRD.md                 ← requerimientos, flujos y diagramas
-├─ docs/brand/logo-original.png
-├─ supabase/migrations/      ← esquema de base de datos
-├─ public/brand, public/icons, public/sw.js (service worker)
-└─ src/
-   ├─ app/
-   │  ├─ page.tsx            ← landing pública + solicitud
-   │  ├─ login/              ← entrada + cuentas de prueba
-   │  ├─ app/                ← portal cliente: inicio, pedido, historial, perfil
-   │  ├─ admin/              ← resumen, pedidos, programacion, produccion, inventario,
-   │  │                         finanzas, inversionistas, usuarios, ajustes
-   │  ├─ inversor/           ← vista inversionista (solo lectura)
-   │  └─ manifest.ts         ← PWA
-   ├─ components/
-   │  ├─ brand/              ← Logo, Wordmark, Rombo Zenú, ilustraciones de producto
-   │  ├─ ui/                 ← Button, Card, Stepper, Sheet, Stat, Segmented, Toast…
-   │  ├─ charts/             ← GroupedBars, HBars, SplitBar (SVG propio)
-   │  ├─ admin/ cliente/ pwa/
-   │  └─ RoleGate.tsx        ← protección por rol (prototipo)
-   └─ lib/                   ← types, mock-data, store, selectors, format, labels, periods, week
+src/
+├─ proxy.ts                    ← sesión + protección por rol
+├─ app/
+│  ├─ page.tsx                 ← landing (catálogo cacheado)
+│  ├─ login/ cambiar-clave/ auth/confirm/ (recuperación)
+│  ├─ app/                     ← cliente: inicio, pedido, historial, perfil, avisos
+│  ├─ admin/                   ← resumen, pedidos, clientes, finanzas, produccion,
+│  │                              productos, programacion, inversionistas, ajustes, avisos
+│  ├─ inversor/
+│  ├─ api/cron/recordatorio/   ← Vercel Cron
+│  └─ actions/                 ← Server Actions: auth, public, cliente, admin
+├─ components/ (ui, brand, charts, admin, cliente, shared, auth, pwa)
+└─ lib/
+   ├─ auth.ts (getProfile, requirePage, requireAction)  data.ts (consultas)
+   ├─ notify.ts (app + push + correo)  validate.ts  action.ts (manejo de errores)
+   ├─ time.ts (hora Colombia, ventanas de pedido)  selectors.ts (cálculos puros)
+   └─ supabase/ (server, admin, public)
+tests/negocio.test.ts           supabase/migrations/0001…0004
 ```
 
 ---
 
-## 6. Proceso de trabajo
+## 7. Proceso
 
-1. **Diseño + funcionalidad con datos de prueba** ✅ (2026-10-12)
-2. Conectar Supabase (crear proyecto, correr migración, variables `.env.local`). ← *siguiente*
-3. Auth real + RLS + roles.
-4. PWA + Push.
-5. Pruebas con 2–3 clientes reales → ajustes.
-6. Deploy en Vercel + dominio.
-
----
-
-## 7. Pendientes / preguntas para el dueño
-
-- [ ] **Productos y presentaciones**: ¿qué tamaños de paquete (g)? ¿hay más sabores/productos?
-- [ ] **Precios** regular y mayorista por producto.
-- [ ] **Día de corte y día de entrega** (supuesto: jueves 6 p. m. / sábado).
-- [ ] **Pedido mínimo mayorista**.
-- [ ] **% del inversionista** (supuesto: 30 %) y si hay más de un inversionista.
-- [ ] **Métodos de pago** (efectivo, Nequi, Daviplata, transferencia) y si se fía (cuentas por cobrar).
-- [ ] **Login**: ¿celular + contraseña está bien?
-- [ ] Número de **WhatsApp** del negocio y redes.
-- [ ] **Zonas/municipios** de entrega.
-- [ ] Credenciales de **Supabase** (URL + anon key; service role solo para servidor).
-- [ ] Dominio deseado (ej. `tostoneszenu.com`).
-
-- [ ] Fotos reales del producto (hoy se usan ilustraciones SVG).
-
-### Pendientes técnicos
-- [ ] F1 Supabase: Auth real, capa de datos, `proxy.ts`, quitar `instantInsights manual-warning`.
-- [ ] F4 Push: claves VAPID, suscripción en `usePwa.enableNotifications`, Edge Function `send-push`, `pg_cron` jueves 10 a. m., trigger `en_camino`.
-- [ ] Subir soportes (fotos de facturas) de gastos a Supabase Storage.
-- [ ] Exportar finanzas a Excel/PDF.
-- [ ] Ajustes manuales de inventario (tabla `inventory_adjustments` ya existe en SQL; falta UI).
-- [ ] Pruebas e2e (Playwright) del flujo de pedido.
+1. Diseño y prototipo con datos de prueba ✅
+2. Supabase conectado, con auth real, RLS y roles ✅
+3. Modelo **solo mayoristas**, entregas configurables, catálogo editable, notificaciones ✅
+4. Pruebas de punta a punta contra Supabase ✅ (2026-10-12)
+5. **Siguiente:** desplegar en Vercel con las variables completas, configurar Auth en Supabase y hacer un piloto con 2–3 clientes reales.
+6. Después: fotos reales, dominio, correo con Resend.
 
 ---
 
-## 8. Bitácora
+## 8. Pendientes
+
+### Para el dueño
+- [ ] Confirmar que los **martes y jueves** son los días de entrega. Antigravity puso "del SENA": ¿entregan en el SENA? Si es así, se agrega en "Zonas" desde Ajustes.
+- [ ] Revisar **precios, pesos y costos** de los 3 productos en Admin → Productos.
+- [ ] Poner el **WhatsApp del negocio** en Ajustes (hoy está vacío y el botón no aparece).
+- [ ] **Revisar los DNS del computador** (§4).
+- [ ] En Vercel: agregar las variables nuevas (§4) y `NEXT_PUBLIC_SITE_URL`.
+- [ ] En Supabase: *Site URL*, *Redirect URLs*, desactivar el registro público y activar *Leaked password protection*.
+- [ ] Opcional: cuenta en Resend y dominio, para los correos.
+- [ ] Fotos reales de los productos (hoy son ilustraciones SVG).
+
+### Técnicos
+- [ ] Subir fotos de productos (columna `image_url`) y soportes de gastos a Supabase Storage.
+- [ ] Pantalla de ajustes manuales de inventario.
+- [ ] Exportar finanzas a Excel.
+- [ ] Pruebas E2E automatizadas (Playwright) del flujo de pedido. Hoy se prueban a mano y con `vitest`.
+- [ ] Varios pedidos por semana (uno por cada día de entrega), si el negocio lo necesita.
+
+---
+
+## 9. Cómo correr y probar
+```bash
+npm install
+npm run dev        # http://localhost:3000
+npm test           # 18 pruebas de lógica
+npm run typecheck
+npx next build
+```
+
+---
+
+## 10. Bitácora
 
 | Fecha | Cambio |
 |---|---|
-| 2026-10-12 | Inicio del proyecto. Análisis del logo, definición de marca (paleta, tipografía, estilo “caña flecha”), arquitectura y PRD. Scaffold Next.js 16 + Tailwind v4. Esquema SQL inicial con RLS. Íconos PWA desde el logo. |
-| 2026-10-12 | Prototipo funcional completo con datos de prueba: landing + solicitud, login con cuentas demo, portal cliente (pedido semanal, “esta semana no”, repetir pedido, historial, perfil, notificaciones, instalar app), admin (resumen, consolidado y estados de pedido, programación semanal, producción, inventario, finanzas con ingresos/egresos/categorías, calculadora de inversionista, usuarios/solicitudes, ajustes), vista inversionista. Service worker con caché offline + push. Build de producción OK. |
+| 2026-10-12 | Inicio: marca (paleta, tipografía, estilo "caña flecha"), PRD, scaffold Next.js 16 + Tailwind v4, esquema SQL, íconos PWA. |
+| 2026-10-12 | Prototipo completo con datos de prueba (cliente, admin, inversionista). |
+| 2026-10-12 | (Antigravity) Supabase conectado, clientes Supabase, `proxy.ts`, admin creado, pivote a mayoristas, CRUD de productos y ajustes. |
+| 2026-10-12 | **Revisión y reconstrucción con Claude.**<br>**Seguridad:**<br>• Las acciones de admin de Antigravity usaban la llave maestra sin verificar el rol. Reescritas todas con `requireAction` + validación.<br>• `handle_new_user` ya no confía en el rol que mande el navegador.<br>• Funciones internas fuera del API público.<br>• El service worker ya no cachea datos de cuentas.<br>**Datos:**<br>• Migraciones 0002–0004: solo mayoristas, mínimo 10, `products.price` / `category` / `featured` / `weight_grams` coherentes.<br>• `settings.delivery_weekdays`, tabla `faqs`, `notifications`, `orders.week_start` + `delivery_on` (adiós `weeks`).<br>• FK `created_by` con `set null`, trigger de total como SECURITY DEFINER, índices y `(select auth.uid())` en RLS.<br>**App:**<br>• Todas las pantallas conectadas a Supabase (se eliminó el estado simulado en el navegador).<br>• Admin crea cuentas con contraseña temporal + WhatsApp.<br>• Pedido con día de entrega y hora límite.<br>• Notificaciones por app, push y correo, más cron de recordatorio.<br>• Login con celular o correo + recuperación de contraseña.<br>**Rendimiento:** imágenes a WebP (logo de 839 KB a 85 KB).<br>**Pruebas:**<br>• 18 de lógica (`vitest`).<br>• De punta a punta: solicitud → crear cuenta → login del cliente → pedido (mínimo validado) → producción → en camino → entregado → pago → ingreso automático + avisos.<br>• Pruebas de RLS.<br>• Corregidos 4 errores encontrados en las pruebas: ciclo de redirección en `proxy`, doble conteo de lo entregado en producción, borrado de cuentas bloqueado y fecha UTC en solicitudes.<br>**Login:** la causa de que no funcionara fue que lo publicado era el prototipo sin Supabase y que el DNS del PC desvía Supabase. |

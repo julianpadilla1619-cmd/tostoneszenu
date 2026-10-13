@@ -48,3 +48,12 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join("");
+
+/** "18:00" → "6 p. m." */
+export function hour12(t: string) {
+  const [h, m] = t.split(":").map(Number);
+  return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h >= 12 ? "p. m." : "a. m."}`;
+}
+
+/** "1 cliente activo" / "3 clientes activos" */
+export const plural = (n: number, one: string, many: string) => `${num.format(n)} ${n === 1 ? one : many}`;

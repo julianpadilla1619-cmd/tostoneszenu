@@ -2,8 +2,8 @@
    - Caché "network-first" para páginas (abre sin red con el último estado)
    - Caché "cache-first" para estáticos
    - Notificaciones push (recordatorio de pedido / pedido en camino) */
-const VERSION = "tz-v1";
-const PRECACHE = ["/", "/app", "/brand/logo.png", "/icons/icon-192.png"];
+const VERSION = "tz-v2";
+const PRECACHE = ["/", "/brand/logo-256.webp", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -27,9 +27,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (req.mode === "navigate") {
+    // Solo se guardan páginas públicas: nunca datos de una cuenta (celular compartido).
+    const path = new URL(req.url).pathname;
+    const cacheable = path === "/" || path === "/login";
     event.respondWith(fetch(req).then((res) => {
-      const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); return res;
-    }).catch(() => caches.match(req).then((hit) => hit || caches.match("/app"))));
+      if (cacheable && res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
+      return res;
+    }).catch(() => caches.match(req).then((hit) => hit || caches.match("/"))));
   }
 });
 

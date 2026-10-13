@@ -4,10 +4,11 @@ import clsx from "clsx";
 export function Logo({ size = 48, className, priority }: { size?: number; className?: string; priority?: boolean }) {
   return (
     <Image
-      src="/brand/logo.png"
+      src={size > 128 ? "/brand/logo-640.webp" : "/brand/logo-256.webp"}
       alt="Tostones Zenú · Sabor Tuchinero"
       width={size}
       height={Math.round(size * 1.05)}
+      sizes={`${size}px`}
       priority={priority}
       className={clsx("select-none", className)}
     />
@@ -40,8 +41,8 @@ export function Rombo({ className, color = "currentColor" }: { className?: strin
 }
 
 /** Ilustración simple del producto (rodajas de tostón o bastones de papa). */
-export function ProductArt({ kind, className }: { kind: "toston" | "papa"; className?: string }) {
-  if (kind === "papa") {
+export function ProductArt({ kind, className }: { kind: string; className?: string }) {
+  if (kind === "papa" || kind === "yuca" || kind === "name") {
     return (
       <svg viewBox="0 0 120 120" className={className} aria-hidden>
         <circle cx="60" cy="60" r="56" fill="var(--color-noche)" />

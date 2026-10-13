@@ -89,6 +89,7 @@
 
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
+  a, button, input, select, textarea, label { touch-action: manipulation; }
   body {
     background: var(--color-cana);
     color: var(--color-noche);
