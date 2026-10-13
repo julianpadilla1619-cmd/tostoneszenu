@@ -24,7 +24,6 @@ async function Pedido() {
     <OrderBuilder
       products={products}
       min={settings.wholesaleMinPacks}
-      cutoffTime={settings.cutoffTime}
       weekStart={win.weekStart}
       deliveries={win.open}
       current={current}

@@ -35,7 +35,7 @@ export async function Avisos({ me }: { me: Profile }) {
                   <p className="font-semibold">{n.title}</p>
                   {!n.readAt && <span className="mt-1.5 size-2.5 shrink-0 rounded-full bg-oro" aria-label="Nuevo" />}
                 </div>
-                <p className="mt-0.5 text-sm text-tinta-2">{n.body}</p>
+                <p className="mt-0.5 whitespace-pre-line text-sm text-tinta-2">{n.body}</p>
                 <p className="mt-1 text-xs text-tinta-2">{when.format(new Date(n.createdAt))}</p>
               </>
             );

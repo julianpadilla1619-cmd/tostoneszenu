@@ -1,5 +1,6 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
+import { DEFAULT_LANDING } from "./landing";
 import * as m from "./mappers";
 import { createPublicClient } from "./supabase/public";
 import { createClient } from "./supabase/server";
@@ -9,14 +10,16 @@ export const CATALOG_TAG = "catalogo";
 
 const FALLBACK_SETTINGS: Settings = {
   deliveryWeekdays: [2, 4],
+  cutoffDaysBefore: 2,
   cutoffTime: "18:00",
   wholesaleMinPacks: 10,
   reminderWeekday: 4,
   reminderTime: "10:00",
   whatsapp: null,
   headline: "El sabor original del Zenú.",
-  zones: "Tuchín y municipios cercanos de Córdoba y Sucre.",
+  zones: "Tuchín y municipios cercanos.",
   contactEmail: null,
+  landing: DEFAULT_LANDING,
 };
 
 /**

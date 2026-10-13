@@ -17,7 +17,7 @@ export default function ClientesPage() {
 
 async function Clientes() {
   const me = await requirePage(["admin"]);
-  const [requests, people] = await Promise.all([signupRequests("nueva"), profilesByRole(["mayorista", "inversionista", "admin"])]);
+  const [requests, people] = await Promise.all([signupRequests("todas"), profilesByRole(["mayorista", "inversionista", "admin"])]);
   const customers = people.filter((p) => p.role === "mayorista");
   return (
     <>

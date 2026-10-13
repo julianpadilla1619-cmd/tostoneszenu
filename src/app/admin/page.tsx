@@ -172,7 +172,7 @@ async function Resumen() {
             )}
             {next && (
               <p className="mt-3 flex items-center gap-2 rounded-xl bg-oro/10 p-3 text-sm text-oro-claro">
-                <Clock className="size-4 shrink-0" aria-hidden /> El día antes de cada entrega les llega un recordatorio automático.
+                <Clock className="size-4 shrink-0" aria-hidden /> El día de cierre de cada entrega les llega un recordatorio automático.
               </p>
             )}
           </Card>

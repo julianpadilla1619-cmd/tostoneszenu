@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Copy, KeyRound, MessageCircle, Pencil, Phone, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Copy, KeyRound, Mail, MessageCircle, Pencil, Phone, Trash2, UserPlus, X } from "lucide-react";
 import { createCustomer, deleteCustomer, resetCustomerPassword, setRequestStatus, updateCustomer } from "@/app/actions/admin";
 import { ActionButton } from "@/components/shared/ActionButton";
 import { Button, Card, Empty, Field, FormError, Input, Pill, Segmented, Select, Sheet, Spinner, Textarea } from "@/components/ui/ui";
@@ -29,7 +29,9 @@ export function ClientesView({
   municipios: string[];
   siteUrl: string;
 }) {
-  const [tab, setTab] = useState<Tab>(requests.length ? "solicitudes" : "clientes");
+  const pendingReq = requests.filter((r) => r.status === "nueva");
+  const pastReq = requests.filter((r) => r.status !== "nueva");
+  const [tab, setTab] = useState<Tab>(pendingReq.length ? "solicitudes" : "clientes");
   const [editor, setEditor] = useState<Editor | null>(null);
   const [creds, setCreds] = useState<Creds | null>(null);
   const [q, setQ] = useState("");
@@ -44,7 +46,7 @@ export function ClientesView({
           value={tab}
           onChange={setTab}
           options={[
-            { value: "solicitudes", label: `Solicitudes${requests.length ? ` (${requests.length})` : ""}` },
+            { value: "solicitudes", label: `Solicitudes${pendingReq.length ? ` (${pendingReq.length})` : ""}` },
             { value: "clientes", label: `Clientes (${customers.length})` },
             { value: "equipo", label: "Equipo" },
           ]}
@@ -58,8 +60,8 @@ export function ClientesView({
 
       {tab === "solicitudes" ? (
         <div className="grid gap-3 md:grid-cols-2">
-          {requests.length === 0 && <Empty title="No hay solicitudes nuevas">Cuando alguien llene el formulario de la página principal, aparece aquí y te llega un aviso.</Empty>}
-          {requests.map((r) => (
+          {pendingReq.length === 0 && <Empty title="No hay solicitudes nuevas">Cuando alguien llene el formulario de la página principal, aparece aquí y te llega un aviso (y un correo si está configurado).</Empty>}
+          {pendingReq.map((r) => (
             <Card key={r.id} as="article">
               <p className="font-display text-lg font-bold">{r.businessName ?? r.fullName}</p>
               <p className="text-sm text-tinta-2">
@@ -67,9 +69,14 @@ export function ClientesView({
                 {r.municipality ?? ""}
               </p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-tinta-2">
-                <span className="inline-flex items-center gap-1.5">
+                <a className="inline-flex min-h-8 items-center gap-1.5 hover:text-tinta" href={`tel:+57${r.phone}`}>
                   <Phone className="size-3.5" aria-hidden /> {r.phone}
-                </span>
+                </a>
+                {r.email && (
+                  <a className="inline-flex min-h-8 items-center gap-1.5 break-all hover:text-tinta" href={`mailto:${r.email}`}>
+                    <Mail className="size-3.5 shrink-0" aria-hidden /> {r.email}
+                  </a>
+                )}
                 {r.estWeeklyPacks ? <span>~{qty(r.estWeeklyPacks)} paq./semana</span> : null}
                 <span>{dayLabel(todayBogota(new Date(r.createdAt)))}</span>
               </div>
@@ -93,6 +100,29 @@ export function ClientesView({
               </div>
             </Card>
           ))}
+          {pastReq.length > 0 && (
+            <details className="md:col-span-2">
+              <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-tinta-2">Historial de solicitudes ({pastReq.length})</summary>
+              <ul className="mt-2 divide-y divide-linea rounded-[var(--radius-card)] border border-linea bg-card">
+                {pastReq.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
+                    <span className="font-semibold">{r.businessName ?? r.fullName}</span>
+                    <span className="text-tinta-2">
+                      {[r.businessName ? r.fullName : null, r.phone, r.email, r.municipality].filter(Boolean).join(" · ")}
+                    </span>
+                    <span className="ml-auto flex items-center gap-2">
+                      <Pill className={r.status === "aprobada" ? "!bg-ok/15 !text-ok" : "!bg-mal/12 !text-mal"}>{r.status === "aprobada" ? "Aprobada" : "Rechazada"}</Pill>
+                      {r.status === "rechazada" && (
+                        <ActionButton variant="fantasma" action={setRequestStatus.bind(null, r.id, "nueva")}>
+                          Reabrir
+                        </ActionButton>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       ) : (
         <>
@@ -267,7 +297,7 @@ function CustomerSheet({
           </Field>
         </div>
         <Field label={role === "inversionista" ? "Correo (será su usuario)" : "Correo (opcional)"}>
-          {(id) => <Input id={id} name="email" type="email" required={role === "inversionista" && !editing} defaultValue={editing?.email ?? ""} />}
+          {(id) => <Input id={id} name="email" type="email" required={role === "inversionista" && !editing} defaultValue={editing?.email ?? req?.email ?? ""} />}
         </Field>
         {role === "mayorista" && <Field label="Dirección de entrega">{(id) => <Input id={id} name="address" maxLength={160} defaultValue={editing?.address ?? ""} />}</Field>}
         {editing && (

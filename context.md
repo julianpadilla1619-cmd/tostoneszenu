@@ -6,7 +6,7 @@
 ---
 
 ## 0. Si eres otra IA (o persona) retomando el proyecto
-1. Lee este archivo completo. Después revisa `supabase/migrations/` en orden (0001 → 0005); la base está explicada en **§5**.
+1. Lee este archivo completo. Después revisa `supabase/migrations/` en orden (0001 → 0006); la base está explicada en **§5**.
 2. El proyecto usa **Next.js 16** con `cacheComponents`. Sus APIs cambiaron: antes de usar una, lee su guía en `node_modules/next/dist/docs/` (ver `AGENTS.md`). Reglas que ya nos costaron errores:
    - Leer la sesión (cookies) **siempre dentro de `<Suspense>`**. `getProfile()` llama `connection()` antes de tocar Supabase.
    - No usar `new Date()` / `Date.now()` en Server Components sin un acceso dinámico previo.
@@ -26,7 +26,7 @@
 | Producto | **Tajadas** de plátano y de papa empacadas (de vez en cuando ñame o yuca). La marca se llama "tostones", pero el producto son tajadas. |
 | Modelo | **Solo al por mayor**: tiendas, cafeterías, kioscos y revendedores. **No se vende al detal.** |
 | Pedido mínimo | **10 paquetes por pedido** (se pueden combinar productos). Configurable. |
-| Entregas | **Martes y jueves** (configurable). Hora límite: **6 p. m. del día anterior** a la entrega. |
+| Entregas | **Martes y jueves** (configurable). Cierre de pedidos **configurable en días de anticipación + hora**; hoy está en **2 días antes, a las 6 p. m.** (el martes cierra el domingo y el jueves cierra el martes). |
 | Pago | Contra entrega: efectivo, Nequi, Daviplata o transferencia. Se puede fiar: queda en "Por cobrar". |
 | Moneda / zona | COP sin decimales · `America/Bogota` (UTC−5, sin horario de verano) |
 | Roles | **Admin** (dueño) · **Cliente mayorista** · **Inversionista** (solo ve sus ganancias). El rol "regular" ya no existe. |
@@ -102,7 +102,7 @@
 | `/admin/finanzas` | Admin | Periodos, ingresos (automáticos y manuales), gastos con categorías y subcategorías, ganancia neta, margen |
 | `/admin/inversionistas` | Admin | Porcentaje, reparto por periodo, registrar pagos |
 | `/admin/programacion` | Admin | Semana con horas límite, entregas y tareas |
-| `/admin/ajustes` | Admin | Días de entrega, hora límite, mínimo, WhatsApp, correo, titular, zonas, preguntas frecuentes, categorías de gasto |
+| `/admin/ajustes` | Admin | Días de entrega, cierre (días de anticipación + hora), mínimo, WhatsApp, correo, titular, zonas, preguntas frecuentes, categorías de gasto y **textos de la página** (bienvenida, productos, los 3 pasos, la semana, la solicitud) con comodines `{minimo}`, `{dias}`, `{hora}` y `{anticipacion}` (`src/lib/landing.ts`) |
 | `/inversor` | Inversionista | Solo lectura: neta del periodo y su parte (vía RPC, sin detalle de gastos) |
 
 ### Reglas de negocio implementadas
@@ -121,10 +121,11 @@
 | Pedido nuevo o modificado | Admins | App + push + correo |
 | En producción / en camino / entregado | Cliente | App + push + correo |
 | Admin le monta un pedido | Cliente | App + push + correo |
-| **Día antes de cada entrega, 10 a. m.** (Vercel Cron → `/api/cron/recordatorio`) | Clientes sin pedido esa semana | App + push + correo |
+| **Día de cierre de cada entrega, 10 a. m.** (Vercel Cron → `/api/cron/recordatorio`) | Clientes sin pedido esa semana | App + push + correo |
 
 - **App:** tabla `notifications` y la campana con contador.
 - **Push:** Web Push con llaves VAPID. Cada persona lo activa en su perfil, en cada celular. En iPhone primero hay que instalar la app en la pantalla de inicio.
+- **Correo a Julián cuando llega una solicitud:** sale por Resend a los admins que tengan correo en su perfil (Julián lo tiene). **Para activarlo:** crear la cuenta gratuita en resend.com **con el mismo correo de Julián**, copiar la API key a `RESEND_API_KEY` en Vercel y dejar `EMAIL_FROM` vacío (se usa `onboarding@resend.dev`, que puede enviar solo al dueño de la cuenta Resend). Para enviar correos a clientes, hay que verificar un dominio propio en Resend y poner `EMAIL_FROM=Tostones Zenú <avisos@tu-dominio>`.
 - **Correo:** [Resend](https://resend.com) vía `RESEND_API_KEY`. Si la variable no existe, no se envían correos y no falla nada. Las cuentas de clientes usan un correo interno (`57XXXXXXXXXX@clientes.tostoneszenu.app`) que nunca recibe correos; el correo real va en `profiles.email`.
 
 ---
@@ -165,7 +166,7 @@ Los DNS de Windows de este PC son `148.251.75.242` y `79.137.248.21`. Resuelven 
 
 ## 5. Base de datos (Supabase / Postgres)
 
-Migraciones en orden: `0001_init` → `0002_mayoristas_entregas_notificaciones` → `0003_fk_created_by` → `0004_rendimiento_rls` → `0005_titular_sabor_zenu`.
+Migraciones en orden: `0001_init` → `0002_mayoristas_entregas_notificaciones` → `0003_fk_created_by` → `0004_rendimiento_rls` → `0005_titular_sabor_zenu` → `0006_anticipacion_textos_solicitud`.
 **Si cambias el SQL, crea una migración nueva, actualiza esta sección y `src/lib/types.ts`/`mappers.ts`.**
 
 **Convenciones:**
@@ -185,8 +186,8 @@ Migraciones en orden: `0001_init` → `0002_mayoristas_entregas_notificaciones` 
 | Tabla | Columnas clave | Notas |
 |---|---|---|
 | `profiles` | full_name, phone (único), email, business_name, role, status, address, municipality, notes, notify_email, notify_push | La crea el trigger `on_auth_user_created`, **siempre** como mayorista pendiente: nunca confía en lo que mande el navegador. El admin la activa. |
-| `signup_requests` | full_name, business_name, phone, municipality, est_weekly_packs, message, status | El anónimo solo puede insertar. |
-| `settings` (fila única) | delivery_weekdays int[] `{2,4}`, cutoff_time `18:00`, wholesale_min_packs `10`, whatsapp, headline, zones, contact_email, reminder_* | La lectura es pública. |
+| `signup_requests` | full_name, business_name (opcional), phone, **email** (opcional), municipality (lista u "Otro" escrito), est_weekly_packs, message, status | El anónimo solo puede insertar. Cada solicitud avisa a los admins (app + push + correo) con todos los datos. El panel muestra las nuevas y un historial de aprobadas y rechazadas. |
+| `settings` (fila única) | delivery_weekdays int[] `{2,4}`, **cutoff_days_before** `2`, cutoff_time `18:00`, wholesale_min_packs `10`, whatsapp, headline, zones, contact_email, **landing** jsonb (textos de la página), reminder_* (sin uso) | La lectura es pública. La hora límite de una entrega = (entrega − cutoff_days_before) a las cutoff_time; función `order_cutoff()`. |
 | `products` | name, category (platano/papa/name/yuca/otro), weight_grams, description, **price**, unit_cost, low_stock_threshold, active, featured, sort, image_url | La lectura pública es solo de los activos. |
 | `faqs` | question, answer, sort, active | Preguntas frecuentes editables desde Ajustes. |
 | `orders` | customer_id, **week_start** (lunes), **delivery_on**, status, paid, payment_method, total, note, created_by | Único por (customer_id, week_start). Valida que la entrega caiga en esa semana. El cliente solo LEE; escribe el servidor. |
@@ -245,7 +246,7 @@ src/
    ├─ notify.ts (app + push + correo)  validate.ts  action.ts (manejo de errores)
    ├─ time.ts (hora Colombia, ventanas de pedido)  selectors.ts (cálculos puros)
    └─ supabase/ (server, admin, public)
-tests/negocio.test.ts           supabase/migrations/0001…0005
+tests/negocio.test.ts           supabase/migrations/0001…0006
 ```
 
 ---
@@ -269,7 +270,7 @@ tests/negocio.test.ts           supabase/migrations/0001…0005
 - [ ] **Revisar los DNS del computador** (§4).
 - [ ] En Vercel: agregar las variables nuevas (§4) y `NEXT_PUBLIC_SITE_URL`.
 - [ ] En Supabase: *Site URL*, *Redirect URLs*, desactivar el registro público y activar *Leaked password protection*.
-- [ ] Opcional: cuenta en Resend y dominio, para los correos.
+- [ ] **Resend** con el correo de Julián (ver §3, Notificaciones) para recibir por correo cada solicitud nueva.
 - [ ] Fotos reales de los productos (hoy son ilustraciones SVG).
 
 ### Técnicos
@@ -301,3 +302,4 @@ npx next build
 | 2026-10-12 | (Antigravity) Supabase conectado, clientes Supabase, `proxy.ts`, admin creado, pivote a mayoristas, CRUD de productos y ajustes. |
 | 2026-10-12 | **Revisión y reconstrucción con Claude.**<br>**Seguridad:**<br>• Las acciones de admin de Antigravity usaban la llave maestra sin verificar el rol. Reescritas todas con `requireAction` + validación.<br>• `handle_new_user` ya no confía en el rol que mande el navegador.<br>• Funciones internas fuera del API público.<br>• El service worker ya no cachea datos de cuentas.<br>**Datos:**<br>• Migraciones 0002–0004: solo mayoristas, mínimo 10, `products.price` / `category` / `featured` / `weight_grams` coherentes.<br>• `settings.delivery_weekdays`, tabla `faqs`, `notifications`, `orders.week_start` + `delivery_on` (adiós `weeks`).<br>• FK `created_by` con `set null`, trigger de total como SECURITY DEFINER, índices y `(select auth.uid())` en RLS.<br>**App:**<br>• Todas las pantallas conectadas a Supabase (se eliminó el estado simulado en el navegador).<br>• Admin crea cuentas con contraseña temporal + WhatsApp.<br>• Pedido con día de entrega y hora límite.<br>• Notificaciones por app, push y correo, más cron de recordatorio.<br>• Login con celular o correo + recuperación de contraseña.<br>**Rendimiento:** imágenes a WebP (logo de 839 KB a 85 KB).<br>**Pruebas:**<br>• 18 de lógica (`vitest`).<br>• De punta a punta: solicitud → crear cuenta → login del cliente → pedido (mínimo validado) → producción → en camino → entregado → pago → ingreso automático + avisos.<br>• Pruebas de RLS.<br>• Corregidos 4 errores encontrados en las pruebas: ciclo de redirección en `proxy`, doble conteo de lo entregado en producción, borrado de cuentas bloqueado y fecha UTC en solicitudes.<br>**Login:** la causa de que no funcionara fue que lo publicado era el prototipo sin Supabase y que el DNS del PC desvía Supabase. |
 | 2026-10-12 | Pedido del dueño: titular **"El sabor original del Zenú."** (migración 0005); se quitó cualquier mención al SENA; volvió el **calendario de la semana** a la página principal (`src/components/brand/WeekCalendar.tsx`, en filas en el celular y en 7 columnas en computador); textos revisados con "Tuchín, Córdoba" bien escrito; título y descripción del sitio y del manifest actualizados. |
+| 2026-10-12 | **Pedido del dueño:**<br>• Cierre de pedidos configurable en **días de anticipación** (1, 2 o 3) + hora; por defecto 2 días antes a las 6 p. m. (migración 0006, `cutoffFor`, `cutoffWeekday`, `order_cutoff`). Calendario, programación, pedido del cliente y recordatorio usan la anticipación.<br>• Zonas: "Tuchín y municipios cercanos."<br>• **Textos de la página editables** desde Ajustes, con comodines.<br>• Formulario de solicitud: negocio opcional, **correo**, municipio "Otro" escrito a mano.<br>• Aviso completo a los admins (app/push/correo).<br>• Panel con correo, municipio, mensaje e historial de solicitudes.<br>• 21 pruebas; flujo de solicitud probado contra Supabase y datos de prueba borrados. |

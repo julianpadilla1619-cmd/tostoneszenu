@@ -83,14 +83,14 @@ async function sendEmail(to: string, msg: Message) {
   <table width="100%" style="max-width:480px;background:#fffaee;border-radius:16px;overflow:hidden" cellpadding="0" cellspacing="0">
   <tr><td style="background:#15110c;padding:18px 24px;color:#f0d58c;font-weight:bold;font-size:18px">Tostones Zenú <span style="color:#d9a93a;font-size:12px;letter-spacing:2px">SABOR TUCHINERO</span></td></tr>
   <tr><td style="padding:24px"><h1 style="margin:0 0 8px;font-size:20px">${escapeHtml(msg.title)}</h1>
-  <p style="margin:0 0 20px;font-size:15px;line-height:1.5">${escapeHtml(msg.body)}</p>
+  <p style="margin:0 0 20px;font-size:15px;line-height:1.6">${escapeHtml(msg.body).replaceAll("\n", "<br>")}</p>
   <a href="${link}" style="display:inline-block;background:#d9a93a;color:#15110c;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:12px">Abrir la app</a></td></tr>
   <tr><td style="padding:0 24px 20px;font-size:12px;color:#6a5238">Recibes este correo porque tienes activados los avisos por correo en tu perfil.</td></tr>
   </table></td></tr></table></body></html>`;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM ?? "Tostones Zenú <onboarding@resend.dev>", to, subject: msg.title, html }),
+    body: JSON.stringify({ from: process.env.EMAIL_FROM || "Tostones Zenú <onboarding@resend.dev>", to, subject: msg.title, html }),
   });
   if (!res.ok) console.error("[email]", res.status, await res.text());
 }

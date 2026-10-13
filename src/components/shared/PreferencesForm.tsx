@@ -22,7 +22,7 @@ export function PreferencesForm({ profile, showAddress }: { profile: Profile; sh
           <p className="flex items-center gap-2 text-sm font-semibold">
             <Smartphone className="size-4" aria-hidden /> Notificaciones en este celular
           </p>
-          <p className="mt-1 text-xs text-tinta-2">Te avisamos cuando tu pedido va en camino y el día antes de cada entrega.</p>
+          <p className="mt-1 text-xs text-tinta-2">Te avisamos cuando tu pedido va en camino y el día en que cierran los pedidos.</p>
           {pwa.push === "unsupported" ? (
             <p className="mt-2 text-xs text-tinta-2">
               {pwa.isIOS && !pwa.standalone

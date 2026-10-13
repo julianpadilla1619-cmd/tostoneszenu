@@ -89,6 +89,7 @@ export async function saveSettings(formData: FormData) {
         .from("settings")
         .update({
           delivery_weekdays: [...new Set(days)].sort(),
+          cutoff_days_before: int(formData, "cutoff_days_before", { required: true, min: 1, max: 7, label: "los días de anticipación" }),
           cutoff_time: time,
           wholesale_min_packs: int(formData, "wholesale_min_packs", { required: true, min: 1, max: 10000, label: "el mínimo" }),
           reminder_weekday: int(formData, "reminder_weekday", { required: true, min: 1, max: 7 }),
@@ -102,6 +103,28 @@ export async function saveSettings(formData: FormData) {
     );
     catalogChanged();
     return { ok: true as const, message: "Ajustes guardados" };
+  });
+}
+
+/** Textos de la página principal. Un campo vacío vuelve al texto por defecto. */
+export async function saveLandingTexts(formData: FormData) {
+  return run(async () => {
+    await admin();
+    const t = (k: string, max: number) => text(formData, k, { max }) ?? "";
+    const landing = {
+      intro: t("intro", 400),
+      productsTitle: t("productsTitle", 120),
+      productsNote: t("productsNote", 240),
+      steps: [0, 1, 2].map((i) => ({ title: t(`step${i}_title`, 80), text: t(`step${i}_text`, 240) })),
+      weekTitle: t("weekTitle", 120),
+      weekText: t("weekText", 400),
+      signupTitle: t("signupTitle", 120),
+      signupText: t("signupText", 240),
+    };
+    const db = await createClient();
+    check(await db.from("settings").update({ landing }).eq("id", true));
+    catalogChanged();
+    return { ok: true as const, message: "Textos guardados" };
   });
 }
 

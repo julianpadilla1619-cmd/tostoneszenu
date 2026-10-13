@@ -8,13 +8,12 @@ import { ArrowLeft, CheckCircle2, Lock, RotateCcw } from "lucide-react";
 import { saveMyOrder } from "@/app/actions/cliente";
 import { ProductArt } from "@/components/brand/Brand";
 import { Button, Card, Spinner, Stepper, Textarea, useToast } from "@/components/ui/ui";
-import { dayLong, dayShort, hour12, money, qty } from "@/lib/format";
+import { cutoffLabel, dayLong, dayShort, money, qty } from "@/lib/format";
 import type { Order, Product } from "@/lib/types";
 
 interface Props {
   products: Product[];
   min: number;
-  cutoffTime: string;
   weekStart: string;
   deliveries: { date: string; cutoff: string }[];
   current: Order | null;
@@ -23,7 +22,7 @@ interface Props {
   whatsapp: string | null;
 }
 
-export function OrderBuilder({ products, min, cutoffTime, weekStart, deliveries, current, previous, locked, whatsapp }: Props) {
+export function OrderBuilder({ products, min, weekStart, deliveries, current, previous, locked, whatsapp }: Props) {
   const router = useRouter();
   const [toast, showToast] = useToast();
   const [pending, start] = useTransition();
@@ -93,7 +92,7 @@ export function OrderBuilder({ products, min, cutoffTime, weekStart, deliveries,
               >
                 <input type="radio" name="delivery" value={d.date} checked={delivery === d.date} onChange={() => setDelivery(d.date)} className="sr-only" />
                 <span className="font-semibold">{dayLong(d.date)}</span>
-                <span className="text-xs text-tinta-2">Pides hasta {hour12(cutoffTime)} del día antes</span>
+                <span className="text-xs text-tinta-2">Pide hasta el {cutoffLabel(d.cutoff)}</span>
               </label>
             ))}
           </div>

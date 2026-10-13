@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { addDays, hour12, money } from "@/lib/format";
+import { addDays, cutoffLabel, hour12, money } from "@/lib/format";
+import { DEFAULT_LANDING, fill, mergeLanding } from "@/lib/landing";
 import { periodRange } from "@/lib/periods";
 import { consolidate, finance, investorSplit, orderTotal, pendingDelivery, weeklySeries } from "@/lib/selectors";
-import { cutoffFor, deliveriesOfWeek, isEditable, isoWeekday, mondayOf, orderWindow, timeLeft, todayBogota, weekdayList } from "@/lib/time";
+import { cutoffFor, cutoffWeekday, deliveriesOfWeek, isEditable, isoWeekday, mondayOf, orderWindow, timeLeft, todayBogota, weekdayList } from "@/lib/time";
 import type { Expense, ExpenseCategory, Income, Order, Product } from "@/lib/types";
 import { phone, tempPassword, ValidationError } from "@/lib/validate";
 
-const settings = { deliveryWeekdays: [2, 4], cutoffTime: "18:00" };
+const settings = { deliveryWeekdays: [2, 4], cutoffTime: "18:00", cutoffDaysBefore: 1 };
+const settings2 = { ...settings, cutoffDaysBefore: 2 };
 // Instante en Colombia (UTC−5) expresado en UTC.
 const at = (iso: string) => new Date(`${iso}-05:00`);
 
@@ -48,6 +50,16 @@ describe("ventana de pedido", () => {
   it("un pedido no se puede cambiar después de su hora límite", () => {
     expect(isEditable("2026-10-13", "2026-10-12", settings, at("2026-10-12T17:59:00"))).toBe(true);
     expect(isEditable("2026-10-13", "2026-10-12", settings, at("2026-10-12T18:01:00"))).toBe(false);
+  });
+  it("con 2 días de anticipación: el martes cierra el domingo y el jueves cierra el martes", () => {
+    expect(cutoffFor("2026-10-13", "18:00", 2).toISOString()).toBe("2026-10-11T23:00:00.000Z");
+    expect(cutoffWeekday(2, 2)).toBe(7);
+    expect(cutoffWeekday(4, 2)).toBe(2);
+    expect(cutoffWeekday(2, 1)).toBe(1);
+    expect(orderWindow(settings2, at("2026-10-12T12:00:00")).open.map((d) => d.date)).toEqual(["2026-10-15"]);
+    const w = orderWindow(settings2, at("2026-10-14T12:00:00"));
+    expect(w.weekStart).toBe("2026-10-19");
+    expect(w.open.map((d) => d.date)).toEqual(["2026-10-20", "2026-10-22"]);
   });
   it("texto de tiempo restante", () => {
     expect(timeLeft("2026-10-12T23:00:00.000Z", at("2026-10-12T15:30:00"))).toBe("Faltan 2 h 30 min");
@@ -134,6 +146,17 @@ describe("validaciones y formato", () => {
   });
   it("genera contraseñas temporales de 7 caracteres sin caracteres confusos", () => {
     for (let i = 0; i < 50; i++) expect(tempPassword()).toMatch(/^[A-Z][a-z]{2}\d{4}$/);
+  });
+  it("muestra la hora de cierre en hora de Colombia", () => {
+    expect(cutoffLabel("2026-10-11T23:00:00.000Z")).toBe("domingo 11 oct, 6 p. m.");
+  });
+  it("textos de la página: vacío = por defecto y comodines reemplazados", () => {
+    const m = mergeLanding({ productsTitle: "  ", steps: [{ title: "Hola" }] });
+    expect(m.productsTitle).toBe(DEFAULT_LANDING.productsTitle);
+    expect(m.steps[0].title).toBe("Hola");
+    expect(m.steps[0].text).toBe(DEFAULT_LANDING.steps[0].text);
+    const s = { deliveryWeekdays: [2, 4], cutoffTime: "18:00", cutoffDaysBefore: 2, wholesaleMinPacks: 10 } as Parameters<typeof fill>[1];
+    expect(fill("Mínimo {minimo}, entregas {dias}, hasta las {hora}, {anticipacion} antes", s)).toBe("Mínimo 10, entregas martes y jueves, hasta las 6 p. m., dos días antes");
   });
   it("formatea dinero y hora", () => {
     expect(money(2800)).toBe("$ 2.800");

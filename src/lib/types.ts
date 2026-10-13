@@ -45,9 +45,21 @@ export interface Product {
   imageUrl: string | null;
 }
 
+export interface LandingTexts {
+  intro: string;
+  productsTitle: string;
+  productsNote: string;
+  steps: { title: string; text: string }[];
+  weekTitle: string;
+  weekText: string;
+  signupTitle: string;
+  signupText: string;
+}
+
 export interface Settings {
   deliveryWeekdays: number[]; // ISO 1=lun … 7=dom
-  cutoffTime: string; // "18:00" del día anterior a cada entrega
+  cutoffDaysBefore: number; // días de anticipación para cerrar el pedido
+  cutoffTime: string; // "18:00" del día de cierre
   wholesaleMinPacks: number;
   reminderWeekday: number;
   reminderTime: string;
@@ -55,6 +67,7 @@ export interface Settings {
   headline: string;
   zones: string;
   contactEmail: string | null;
+  landing: LandingTexts;
 }
 
 export interface Faq {
@@ -144,6 +157,7 @@ export interface SignupRequest {
   id: string;
   fullName: string;
   phone: string;
+  email: string | null;
   municipality: string | null;
   businessName: string | null;
   estWeeklyPacks: number | null;

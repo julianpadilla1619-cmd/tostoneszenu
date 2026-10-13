@@ -9,6 +9,7 @@ export function SignupForm({ municipios, min }: { municipios: string[]; min: num
   const [pending, start] = useTransition();
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [municipio, setMunicipio] = useState("Tuchín");
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,21 +40,29 @@ export function SignupForm({ municipios, min }: { municipios: string[]; min: num
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4 rounded-[1.75rem] border border-oro/20 bg-tierra/90 p-5 sm:p-6">
       <Field label="Tu nombre">{(id) => <Input id={id} name="name" required maxLength={80} autoComplete="name" placeholder="Ej. Rosa Montes" />}</Field>
-      <Field label="Nombre del negocio">{(id) => <Input id={id} name="business" required maxLength={80} autoComplete="organization" placeholder="Tienda, cafetería, kiosco…" />}</Field>
+      <Field label="Nombre del negocio (opcional)">
+        {(id) => <Input id={id} name="business" maxLength={80} autoComplete="organization" placeholder="Tienda, cafetería, kiosco…" />}
+      </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Celular (WhatsApp)">
           {(id) => <Input id={id} name="phone" required type="tel" inputMode="tel" autoComplete="tel-national" placeholder="300 123 4567" />}
         </Field>
-        <Field label="Municipio">
-          {(id) => (
-            <Select id={id} name="municipality" defaultValue="Tuchín" required>
-              {municipios.map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </Select>
-          )}
+        <Field label="Correo (opcional)">
+          {(id) => <Input id={id} name="email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" placeholder="tucorreo@gmail.com" />}
         </Field>
       </div>
+      <Field label="Municipio">
+        {(id) => (
+          <Select id={id} name="municipality" value={municipio} onChange={(e) => setMunicipio(e.target.value)} required>
+            {municipios.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </Select>
+        )}
+      </Field>
+      {municipio === "Otro" && (
+        <Field label="¿Cuál municipio?">{(id) => <Input id={id} name="municipality_other" required maxLength={60} autoComplete="address-level2" />}</Field>
+      )}
       <Field label="Paquetes por semana (aprox.)" hint={`Vendemos desde ${min} paquetes por pedido.`}>
         {(id) => <Input id={id} name="packs" type="number" inputMode="numeric" min={min} placeholder={`Ej. ${min * 3}`} />}
       </Field>

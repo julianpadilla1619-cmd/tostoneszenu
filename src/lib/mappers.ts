@@ -1,5 +1,6 @@
 // Convierte filas de Supabase (snake_case) a tipos de dominio (camelCase).
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { mergeLanding } from "./landing";
 import type {
   AppNotification,
   Expense,
@@ -52,6 +53,7 @@ export const toProduct = (r: Row): Product => ({
 
 export const toSettings = (r: Row): Settings => ({
   deliveryWeekdays: r.delivery_weekdays ?? [2, 4],
+  cutoffDaysBefore: r.cutoff_days_before ?? 2,
   cutoffTime: String(r.cutoff_time ?? "18:00").slice(0, 5),
   wholesaleMinPacks: r.wholesale_min_packs,
   reminderWeekday: r.reminder_weekday,
@@ -60,6 +62,7 @@ export const toSettings = (r: Row): Settings => ({
   headline: r.headline,
   zones: r.zones,
   contactEmail: r.contact_email,
+  landing: mergeLanding(r.landing),
 });
 
 export const toFaq = (r: Row): Faq => ({ id: r.id, question: r.question, answer: r.answer, sort: r.sort, active: r.active });
@@ -137,6 +140,7 @@ export const toRequest = (r: Row): SignupRequest => ({
   id: r.id,
   fullName: r.full_name,
   phone: r.phone,
+  email: r.email ?? null,
   municipality: r.municipality,
   businessName: r.business_name,
   estWeeklyPacks: r.est_weekly_packs,

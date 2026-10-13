@@ -6,7 +6,7 @@ import { SkipWeekButton } from "@/components/cliente/SkipWeekButton";
 import { Card, Skeleton, StatusBadge } from "@/components/ui/ui";
 import { requirePage } from "@/lib/auth";
 import { getCatalog, myOrders } from "@/lib/data";
-import { dayLong, dayShort, hour12, money, qty } from "@/lib/format";
+import { cutoffLabel, dayLong, dayShort, money, qty } from "@/lib/format";
 import { orderPacks, orderTotal } from "@/lib/selectors";
 import { isEditable, orderWindow, timeLeft } from "@/lib/time";
 
@@ -50,7 +50,7 @@ async function Inicio() {
             <p className="mt-3 flex items-start gap-2 text-sm text-cana/80">
               <Clock className="mt-0.5 size-4 shrink-0 text-oro" aria-hidden />
               <span>
-                {timeLeft(next.cutoff)} para pedir para el <b className="text-cana">{dayLong(next.date).toLowerCase()}</b> (hasta las {hour12(settings.cutoffTime)} del día anterior).
+                {timeLeft(next.cutoff)} para pedir para el <b className="text-cana">{dayLong(next.date).toLowerCase()}</b> (cierra el {cutoffLabel(next.cutoff)}).
               </span>
             </p>
           )}

@@ -4,7 +4,8 @@ import { Logo, ProductArt, Rombo, Wordmark } from "@/components/brand/Brand";
 import { WeekCalendar } from "@/components/brand/WeekCalendar";
 import { SignupForm } from "@/components/cliente/SignupForm";
 import { getCatalog } from "@/lib/data";
-import { hour12, money } from "@/lib/format";
+import { money } from "@/lib/format";
+import { fill } from "@/lib/landing";
 import { CATEGORY_LABEL, MUNICIPIOS } from "@/lib/labels";
 import { weekdayList } from "@/lib/time";
 
@@ -17,11 +18,9 @@ export default async function Landing() {
     ? `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent("Hola, quiero información para comprar Tostones Zenú al por mayor.")}`
     : null;
 
-  const pasos = [
-    { icon: UserPlus, t: "Envía la solicitud", d: "Llena el formulario de abajo con los datos de tu negocio. Es gratis y sin compromiso." },
-    { icon: ClipboardCheck, t: "Te creamos la cuenta", d: "Te escribimos por WhatsApp con tu usuario (tu celular) y una contraseña para entrar." },
-    { icon: PackageCheck, t: "Pides desde el celular", d: `Eliges cuántos paquetes quieres y el día de entrega. Mínimo ${min} paquetes por pedido.` },
-  ];
+  const t = settings.landing;
+  const icons = [UserPlus, ClipboardCheck, PackageCheck];
+  const pasos = t.steps.map((p, i) => ({ icon: icons[i] ?? PackageCheck, t: fill(p.title, settings), d: fill(p.text, settings) }));
 
   return (
     <div className="tema-claro bg-fondo text-tinta">
@@ -59,7 +58,7 @@ export default async function Landing() {
               </p>
               <h1 className="mt-5 text-balance font-display text-[2.4rem] font-black leading-[1.02] sm:text-6xl">{settings.headline}</h1>
               <p className="mt-5 max-w-lg text-lg leading-relaxed text-cana/80">
-                Tajadas de plátano y papa hechas a mano en Tuchín, Córdoba, tierra del sombrero vueltiao. Vendemos al por mayor a tiendas, cafeterías y revendedores: haces tu pedido desde el celular y te lo llevamos los {days}.
+                {fill(t.intro, settings)}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a href="#solicitud" className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-oro px-6 font-bold text-noche shadow-[var(--shadow-oro)] transition hover:bg-oro-claro active:scale-[.97]">
@@ -96,7 +95,7 @@ export default async function Landing() {
         {/* Productos */}
         <section id="productos" aria-labelledby="t-productos" className="rombos scroll-mt-16">
           <div className="mx-auto max-w-6xl px-4 py-14 md:py-20">
-            <SectionHead id="t-productos" kicker="Lo que hacemos" title="Tajadas crocantes, listas para tu vitrina." />
+            <SectionHead id="t-productos" kicker="Lo que hacemos" title={fill(t.productsTitle, settings)} />
             {sorted.length === 0 ? (
               <p className="mt-8 text-tinta-2">Muy pronto publicamos los productos.</p>
             ) : (
@@ -124,7 +123,7 @@ export default async function Landing() {
                 ))}
               </ul>
             )}
-            <p className="mt-4 text-sm text-tinta-2">Precios al por mayor. Pedido mínimo de {min} paquetes, que puedes combinar entre productos.</p>
+            <p className="mt-4 text-sm text-tinta-2">{fill(t.productsNote, settings)}</p>
           </div>
         </section>
 
@@ -155,12 +154,12 @@ export default async function Landing() {
         {/* La semana */}
         <section id="semana" aria-labelledby="t-semana" className="scroll-mt-16">
           <div className="mx-auto max-w-6xl px-4 py-14 md:py-20">
-            <SectionHead id="t-semana" kicker="La semana" title="Así trabajamos cada semana." />
+            <SectionHead id="t-semana" kicker="La semana" title={fill(t.weekTitle, settings)} />
             <p className="mt-4 max-w-2xl text-lg leading-relaxed text-tinta-2">
-              Fritamos para cada entrega. Puedes pedir o cambiar tu pedido hasta las {hour12(settings.cutoffTime)} del día anterior, y el día antes te mandamos un recordatorio al celular.
+              {fill(t.weekText, settings)}
             </p>
             <div className="mt-8">
-              <WeekCalendar deliveryWeekdays={settings.deliveryWeekdays} cutoffTime={settings.cutoffTime} />
+              <WeekCalendar deliveryWeekdays={settings.deliveryWeekdays} cutoffTime={settings.cutoffTime} cutoffDaysBefore={settings.cutoffDaysBefore} />
             </div>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <Info icon={<MapPin className="size-5" />} title="Zonas de entrega">
@@ -202,9 +201,9 @@ export default async function Landing() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-oro">Quiero ser cliente</p>
               <h2 id="t-solicitud" className="mt-3 font-display text-4xl font-black leading-tight sm:text-5xl">
-                Vende Tostones Zenú en tu negocio.
+                {fill(t.signupTitle, settings)}
               </h2>
-              <p className="mt-4 max-w-md text-lg text-cana/80">Déjanos tus datos y te escribimos por WhatsApp para crearte la cuenta.</p>
+              <p className="mt-4 max-w-md text-lg text-cana/80">{fill(t.signupText, settings)}</p>
               <ul className="mt-6 space-y-3 text-cana/85">
                 {[
                   `Desde ${min} paquetes por pedido`,

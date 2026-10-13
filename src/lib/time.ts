@@ -18,9 +18,11 @@ export function isoWeekday(iso: string): number {
 
 export const mondayOf = (iso: string) => addDays(iso, 1 - isoWeekday(iso));
 
-/** Instante límite para pedir/cambiar una entrega: día anterior a la hora configurada. */
-export function cutoffFor(deliveryOn: string, cutoffTime: string): Date {
-  return new Date(`${addDays(deliveryOn, -1)}T${cutoffTime.slice(0, 5)}:00${OFFSET}`);
+type CutoffSettings = Pick<Settings, "deliveryWeekdays" | "cutoffTime" | "cutoffDaysBefore">;
+
+/** Instante límite para pedir/cambiar una entrega: `daysBefore` días antes, a la hora configurada. */
+export function cutoffFor(deliveryOn: string, cutoffTime: string, daysBefore = 1): Date {
+  return new Date(`${addDays(deliveryOn, -daysBefore)}T${cutoffTime.slice(0, 5)}:00${OFFSET}`);
 }
 
 /** Entregas de la semana que empieza en `weekStart`. */
@@ -41,12 +43,12 @@ export interface OrderWindow {
  * Semana "activa" para pedir: la de la próxima entrega que aún no pasó su hora límite.
  * Si en la semana actual ya cerraron todas, pasa a la siguiente.
  */
-export function orderWindow(settings: Pick<Settings, "deliveryWeekdays" | "cutoffTime">, now: Date = new Date()): OrderWindow {
+export function orderWindow(settings: CutoffSettings, now: Date = new Date()): OrderWindow {
   let weekStart = mondayOf(todayBogota(now));
   for (let i = 0; i < 2; i++) {
     const all = deliveriesOfWeek(weekStart, settings);
     const open = all
-      .map((date) => ({ date, cutoff: cutoffFor(date, settings.cutoffTime).toISOString() }))
+      .map((date) => ({ date, cutoff: cutoffFor(date, settings.cutoffTime, settings.cutoffDaysBefore).toISOString() }))
       .filter((d) => new Date(d.cutoff) > now);
     if (open.length) return { weekStart, open, all };
     weekStart = addDays(weekStart, 7);
@@ -56,10 +58,15 @@ export function orderWindow(settings: Pick<Settings, "deliveryWeekdays" | "cutof
 }
 
 /** ¿Todavía se puede cambiar un pedido con esa entrega? */
-export function isEditable(deliveryOn: string | null, weekStart: string, settings: Pick<Settings, "deliveryWeekdays" | "cutoffTime">, now: Date = new Date()) {
-  if (deliveryOn) return cutoffFor(deliveryOn, settings.cutoffTime) > now;
+export function isEditable(deliveryOn: string | null, weekStart: string, settings: CutoffSettings, now: Date = new Date()) {
+  if (deliveryOn) return cutoffFor(deliveryOn, settings.cutoffTime, settings.cutoffDaysBefore) > now;
   // Sin entrega (no pide / cancelado): editable mientras quede alguna entrega abierta esa semana.
-  return deliveriesOfWeek(weekStart, settings).some((d) => cutoffFor(d, settings.cutoffTime) > now);
+  return deliveriesOfWeek(weekStart, settings).some((d) => cutoffFor(d, settings.cutoffTime, settings.cutoffDaysBefore) > now);
+}
+
+/** Día ISO (1–7) en que cierra cada día de entrega. */
+export function cutoffWeekday(deliveryWeekday: number, daysBefore: number) {
+  return ((((deliveryWeekday - 1 - daysBefore) % 7) + 7) % 7) + 1;
 }
 
 /** "Faltan 2 d 4 h" / "Faltan 3 h" / "Faltan 20 min". */

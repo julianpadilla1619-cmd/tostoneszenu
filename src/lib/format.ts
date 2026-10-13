@@ -57,3 +57,14 @@ export function hour12(t: string) {
 
 /** "1 cliente activo" / "3 clientes activos" */
 export const plural = (n: number, one: string, many: string) => `${num.format(n)} ${n === 1 ? one : many}`;
+
+const fCutoff = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+/** Instante de cierre legible en hora de Colombia: "domingo 11 oct, 6:00 p. m." */
+export function cutoffLabel(iso: string) {
+  const parts = fCutoff.formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  const h = Number(get("hour"));
+  const min = get("minute");
+  const period = /p/i.test(get("dayPeriod")) ? "p. m." : "a. m.";
+  return `${get("weekday")} ${get("day")} ${get("month").replace(".", "")}, ${h}${min && min !== "00" ? `:${min}` : ""} ${period}`;
+}

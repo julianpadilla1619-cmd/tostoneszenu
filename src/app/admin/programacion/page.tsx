@@ -11,7 +11,7 @@ import { adminProducts, getCatalog, ordersBetween, tasksBetween } from "@/lib/da
 import { addDays, cap, dayShort, hour12, plural, qty, weekdayName } from "@/lib/format";
 import { TASK_LABEL } from "@/lib/labels";
 import { consolidate } from "@/lib/selectors";
-import { deliveriesOfWeek, orderWindow, todayBogota } from "@/lib/time";
+import { cutoffWeekday, deliveriesOfWeek, isoWeekday, orderWindow, todayBogota, WEEKDAY_NAMES } from "@/lib/time";
 import type { TaskKind } from "@/lib/types";
 
 const kindColor: Record<TaskKind, string> = {
@@ -48,7 +48,7 @@ async function Programacion() {
         {days.map((d) => {
           const list = tasks.filter((t) => t.day === d);
           const isDelivery = deliveries.includes(d);
-          const isCutoff = deliveries.includes(addDays(d, 1));
+          const closesFor = settings.deliveryWeekdays.filter((dw) => cutoffWeekday(dw, settings.cutoffDaysBefore) === isoWeekday(d));
           const dayInfo = board.byDay.find((x) => x.date === d);
           return (
             <Card key={d} className={clsx("flex flex-col", d === today && "ring-2 ring-oro", d < today && "opacity-70")}>
@@ -59,9 +59,9 @@ async function Programacion() {
                   {d === today && <span className="ml-1.5 rounded-full bg-oro px-1.5 py-0.5 font-bold text-noche">Hoy</span>}
                 </p>
               </div>
-              {isCutoff && (
+              {closesFor.length > 0 && (
                 <p className="mb-2 flex items-center gap-2 rounded-xl bg-oro/15 px-3 py-2 text-sm font-semibold text-oro-claro">
-                  <Clock className="size-4" aria-hidden /> Hora límite {hour12(settings.cutoffTime)}
+                  <Clock className="size-4 shrink-0" aria-hidden /> Cierre {hour12(settings.cutoffTime)} · pedidos del {closesFor.map((c) => WEEKDAY_NAMES[c].toLowerCase()).join(" y ")}
                 </p>
               )}
               {isDelivery && (
@@ -80,7 +80,7 @@ async function Programacion() {
                     </TaskToggle>
                   </li>
                 ))}
-                {list.length === 0 && !isDelivery && !isCutoff && <li className="text-sm text-tinta-2">Sin tareas.</li>}
+                {list.length === 0 && !isDelivery && !closesFor.length && <li className="text-sm text-tinta-2">Sin tareas.</li>}
               </ul>
             </Card>
           );
