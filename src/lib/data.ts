@@ -14,7 +14,7 @@ const FALLBACK_SETTINGS: Settings = {
   reminderWeekday: 4,
   reminderTime: "10:00",
   whatsapp: null,
-  headline: "Tostones artesanales de Tuchín, Córdoba.",
+  headline: "El sabor original del Zenú.",
   zones: "Tuchín y municipios cercanos de Córdoba y Sucre.",
   contactEmail: null,
 };

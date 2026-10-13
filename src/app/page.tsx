@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, BellRing, ClipboardCheck, MapPin, MessageCircle, PackageCheck, Smartphone, Truck, UserPlus } from "lucide-react";
+import { ArrowRight, BellRing, ClipboardCheck, MapPin, MessageCircle, PackageCheck, Smartphone, UserPlus } from "lucide-react";
 import { Logo, ProductArt, Rombo, Wordmark } from "@/components/brand/Brand";
+import { WeekCalendar } from "@/components/brand/WeekCalendar";
 import { SignupForm } from "@/components/cliente/SignupForm";
 import { getCatalog } from "@/lib/data";
 import { hour12, money } from "@/lib/format";
@@ -37,6 +38,7 @@ export default async function Landing() {
           <nav aria-label="Secciones" className="hidden items-center gap-7 text-sm font-semibold text-cana/75 md:flex">
             <a href="#productos" className="hover:text-oro">Productos</a>
             <a href="#como" className="hover:text-oro">Cómo funciona</a>
+            <a href="#semana" className="hover:text-oro">La semana</a>
             <a href="#preguntas" className="hover:text-oro">Preguntas</a>
           </nav>
           <Link href="/login" className="inline-flex h-11 items-center rounded-xl bg-oro px-4 text-sm font-bold text-noche transition hover:bg-oro-claro active:scale-95">
@@ -53,11 +55,11 @@ export default async function Landing() {
             <div className="animate-subir">
               <Logo size={96} priority className="mb-5 drop-shadow-[0_16px_24px_rgba(0,0,0,.5)] md:hidden" />
               <p className="inline-flex items-center gap-2 rounded-full border border-oro/30 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-oro">
-                <Rombo className="size-3.5" /> Solo al por mayor
+                <Rombo className="size-3.5" /> Tuchín, Córdoba
               </p>
               <h1 className="mt-5 text-balance font-display text-[2.4rem] font-black leading-[1.02] sm:text-6xl">{settings.headline}</h1>
               <p className="mt-5 max-w-lg text-lg leading-relaxed text-cana/80">
-                Tajadas de plátano y papa hechas a mano para tiendas, cafeterías y revendedores. Pides desde el celular y te las llevamos los {days}.
+                Tajadas de plátano y papa hechas a mano en Tuchín, Córdoba, tierra del sombrero vueltiao. Vendemos al por mayor a tiendas, cafeterías y revendedores: haces tu pedido desde el celular y te lo llevamos los {days}.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a href="#solicitud" className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-oro px-6 font-bold text-noche shadow-[var(--shadow-oro)] transition hover:bg-oro-claro active:scale-[.97]">
@@ -147,15 +149,25 @@ export default async function Landing() {
               ))}
             </ol>
 
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              <Info icon={<Truck className="size-5" />} title="Días de entrega">
-                Entregamos los <b className="text-tinta">{days}</b>.
-              </Info>
-              <Info icon={<BellRing className="size-5" />} title="Hora límite">
-                Pides o cambias tu pedido hasta las <b className="text-tinta">{hour12(settings.cutoffTime)}</b> del día anterior a la entrega. Te avisamos al celular.
-              </Info>
-              <Info icon={<MapPin className="size-5" />} title="Zonas">
+          </div>
+        </section>
+
+        {/* La semana */}
+        <section id="semana" aria-labelledby="t-semana" className="scroll-mt-16">
+          <div className="mx-auto max-w-6xl px-4 py-14 md:py-20">
+            <SectionHead id="t-semana" kicker="La semana" title="Así trabajamos cada semana." />
+            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-tinta-2">
+              Fritamos para cada entrega. Puedes pedir o cambiar tu pedido hasta las {hour12(settings.cutoffTime)} del día anterior, y el día antes te mandamos un recordatorio al celular.
+            </p>
+            <div className="mt-8">
+              <WeekCalendar deliveryWeekdays={settings.deliveryWeekdays} cutoffTime={settings.cutoffTime} />
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <Info icon={<MapPin className="size-5" />} title="Zonas de entrega">
                 {settings.zones}
+              </Info>
+              <Info icon={<BellRing className="size-5" />} title="Avisos al celular">
+                Te avisamos cuando tu pedido va en camino y cuando se acerca la hora límite.
               </Info>
             </div>
           </div>
@@ -224,7 +236,7 @@ export default async function Landing() {
           </div>
           <div className="flex flex-col items-center gap-1 sm:items-end">
             <p className="flex items-center gap-1.5">
-              <Smartphone className="size-4" aria-hidden /> Hecho en Tuchín, Córdoba
+              <Smartphone className="size-4" aria-hidden /> Hecho a mano en Tuchín, Córdoba
             </p>
             {settings.contactEmail && (
               <a href={`mailto:${settings.contactEmail}`} className="hover:text-oro">

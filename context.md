@@ -6,7 +6,7 @@
 ---
 
 ## 0. Si eres otra IA (o persona) retomando el proyecto
-1. Lee este archivo completo. Después revisa `supabase/migrations/` en orden (0001 → 0004); la base está explicada en **§5**.
+1. Lee este archivo completo. Después revisa `supabase/migrations/` en orden (0001 → 0005); la base está explicada en **§5**.
 2. El proyecto usa **Next.js 16** con `cacheComponents`. Sus APIs cambiaron: antes de usar una, lee su guía en `node_modules/next/dist/docs/` (ver `AGENTS.md`). Reglas que ya nos costaron errores:
    - Leer la sesión (cookies) **siempre dentro de `<Suspense>`**. `getProfile()` llama `connection()` antes de tocar Supabase.
    - No usar `new Date()` / `Date.now()` en Server Components sin un acceso dinámico previo.
@@ -21,7 +21,7 @@
 
 | Campo | Valor |
 |---|---|
-| Nombre | **Tostones Zenú** · eslogan **Sabor Tuchinero** |
+| Nombre | **Tostones Zenú** · eslogan del logo **Sabor Tuchinero** · titular de la página **"El sabor original del Zenú."** (Zenú con Z; editable en Ajustes) |
 | Origen | Tuchín, Córdoba (Colombia), cuna del sombrero vueltiao y del pueblo Zenú |
 | Producto | **Tajadas** de plátano y de papa empacadas (de vez en cuando ñame o yuca). La marca se llama "tostones", pero el producto son tajadas. |
 | Modelo | **Solo al por mayor**: tiendas, cafeterías, kioscos y revendedores. **No se vende al detal.** |
@@ -80,6 +80,7 @@
   - `prefers-reduced-motion`, `touch-action: manipulation` y `min-h-dvh`.
   - Navegación inferior de máximo 5 ítems en celular; barra lateral en computador.
 - **Voz:** cercana y costeña, con tuteo. ✅ "¿Cuántos paquetes te mandamos?" ❌ "Su solicitud ha sido procesada".
+- **Ortografía de la marca y el lugar:** siempre **Tuchín, Córdoba** (con tildes) y **Zenú** (con Z y tilde). Nunca "Tuchin", "Cordoba", "Cenú" ni "Zenu". No hay relación con el SENA: ese texto lo agregó Antigravity por error y ya se quitó.
 
 ---
 
@@ -87,7 +88,7 @@
 
 | Ruta | Quién | Qué hace |
 |---|---|---|
-| `/` | Público | Titular editable, productos (los destacados primero) con precio por paquete, cómo funciona, días de entrega, hora límite, zonas, preguntas frecuentes, formulario **"Enviar solicitud"** y botón de WhatsApp |
+| `/` | Público | Titular editable ("El sabor original del Zenú."), productos (los destacados primero) con precio por paquete, cómo funciona, **calendario de la semana** (lunes a domingo: días de entrega y último día para pedir, sacados de Ajustes), zonas, preguntas frecuentes, formulario **"Enviar solicitud"** y botón de WhatsApp |
 | `/login` | Todos | Celular (clientes) o correo (admin/inversionista) + contraseña. "Olvidé mi contraseña" por correo |
 | `/cambiar-clave` | Con sesión | Nueva contraseña (también llega aquí el enlace de recuperación) |
 | `/app` | Cliente | Estado del pedido de la semana, tiempo para la hora límite, "Esta semana no pido" |
@@ -164,7 +165,7 @@ Los DNS de Windows de este PC son `148.251.75.242` y `79.137.248.21`. Resuelven 
 
 ## 5. Base de datos (Supabase / Postgres)
 
-Migraciones en orden: `0001_init` → `0002_mayoristas_entregas_notificaciones` → `0003_fk_created_by` → `0004_rendimiento_rls`.
+Migraciones en orden: `0001_init` → `0002_mayoristas_entregas_notificaciones` → `0003_fk_created_by` → `0004_rendimiento_rls` → `0005_titular_sabor_zenu`.
 **Si cambias el SQL, crea una migración nueva, actualiza esta sección y `src/lib/types.ts`/`mappers.ts`.**
 
 **Convenciones:**
@@ -244,7 +245,7 @@ src/
    ├─ notify.ts (app + push + correo)  validate.ts  action.ts (manejo de errores)
    ├─ time.ts (hora Colombia, ventanas de pedido)  selectors.ts (cálculos puros)
    └─ supabase/ (server, admin, public)
-tests/negocio.test.ts           supabase/migrations/0001…0004
+tests/negocio.test.ts           supabase/migrations/0001…0005
 ```
 
 ---
@@ -263,7 +264,6 @@ tests/negocio.test.ts           supabase/migrations/0001…0004
 ## 8. Pendientes
 
 ### Para el dueño
-- [ ] Confirmar que los **martes y jueves** son los días de entrega. Antigravity puso "del SENA": ¿entregan en el SENA? Si es así, se agrega en "Zonas" desde Ajustes.
 - [ ] Revisar **precios, pesos y costos** de los 3 productos en Admin → Productos.
 - [ ] Poner el **WhatsApp del negocio** en Ajustes (hoy está vacío y el botón no aparece).
 - [ ] **Revisar los DNS del computador** (§4).
@@ -300,3 +300,4 @@ npx next build
 | 2026-10-12 | Prototipo completo con datos de prueba (cliente, admin, inversionista). |
 | 2026-10-12 | (Antigravity) Supabase conectado, clientes Supabase, `proxy.ts`, admin creado, pivote a mayoristas, CRUD de productos y ajustes. |
 | 2026-10-12 | **Revisión y reconstrucción con Claude.**<br>**Seguridad:**<br>• Las acciones de admin de Antigravity usaban la llave maestra sin verificar el rol. Reescritas todas con `requireAction` + validación.<br>• `handle_new_user` ya no confía en el rol que mande el navegador.<br>• Funciones internas fuera del API público.<br>• El service worker ya no cachea datos de cuentas.<br>**Datos:**<br>• Migraciones 0002–0004: solo mayoristas, mínimo 10, `products.price` / `category` / `featured` / `weight_grams` coherentes.<br>• `settings.delivery_weekdays`, tabla `faqs`, `notifications`, `orders.week_start` + `delivery_on` (adiós `weeks`).<br>• FK `created_by` con `set null`, trigger de total como SECURITY DEFINER, índices y `(select auth.uid())` en RLS.<br>**App:**<br>• Todas las pantallas conectadas a Supabase (se eliminó el estado simulado en el navegador).<br>• Admin crea cuentas con contraseña temporal + WhatsApp.<br>• Pedido con día de entrega y hora límite.<br>• Notificaciones por app, push y correo, más cron de recordatorio.<br>• Login con celular o correo + recuperación de contraseña.<br>**Rendimiento:** imágenes a WebP (logo de 839 KB a 85 KB).<br>**Pruebas:**<br>• 18 de lógica (`vitest`).<br>• De punta a punta: solicitud → crear cuenta → login del cliente → pedido (mínimo validado) → producción → en camino → entregado → pago → ingreso automático + avisos.<br>• Pruebas de RLS.<br>• Corregidos 4 errores encontrados en las pruebas: ciclo de redirección en `proxy`, doble conteo de lo entregado en producción, borrado de cuentas bloqueado y fecha UTC en solicitudes.<br>**Login:** la causa de que no funcionara fue que lo publicado era el prototipo sin Supabase y que el DNS del PC desvía Supabase. |
+| 2026-10-12 | Pedido del dueño: titular **"El sabor original del Zenú."** (migración 0005); se quitó cualquier mención al SENA; volvió el **calendario de la semana** a la página principal (`src/components/brand/WeekCalendar.tsx`, en filas en el celular y en 7 columnas en computador); textos revisados con "Tuchín, Córdoba" bien escrito; título y descripción del sitio y del manifest actualizados. |

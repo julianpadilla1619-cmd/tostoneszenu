@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Tostones Zenú · Sabor Tuchinero",
     short_name: "Tostones Zenú",
-    description: "Pedidos semanales de tostones y papas al por mayor.",
+    description: "Pedidos al por mayor de Tostones Zenú, hechos a mano en Tuchín, Córdoba.",
     lang: "es-CO",
     start_url: "/app",
     scope: "/",
